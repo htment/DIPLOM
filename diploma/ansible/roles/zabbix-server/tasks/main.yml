@@ -1,0 +1,33 @@
+- name: Install Zabbix Server
+  apt:
+    name: zabbix-server-pgsql
+    state: present
+    update_cache: yes
+
+- name: Install Zabbix Frontend
+  apt:
+    name: zabbix-frontend-php
+    state: present
+
+- name: Install PostgreSQL client
+  apt:
+    name: postgresql-client
+    state: present
+
+- name: Configure Zabbix Server
+  template:
+    src: zabbix_server.conf.j2
+    dest: /etc/zabbix/zabbix_server.conf
+  notify: restart zabbix-server
+
+- name: Ensure Zabbix Server is running
+  service:
+    name: zabbix-server
+    state: started
+    enabled: yes
+
+handlers:
+  - name: restart zabbix-server
+    service:
+      name: zabbix-server
+      state: restarted

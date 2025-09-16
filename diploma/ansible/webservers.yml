@@ -1,0 +1,10 @@
+- name: Configure Web Servers
+  hosts: webservers
+  become: yes
+  roles:
+    - nginx
+    - zabbix-agent
+    - filebeat
+  vars:
+    zabbix_server_ip: "zabbix.ru-central1.internal"
+    elasticsearch_host: "elastic.ru-central1.internal:9200"

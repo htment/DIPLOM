@@ -1,0 +1,13 @@
+- name: Configure ELK Stack
+  hosts: elastic
+  become: yes
+  roles:
+    - elasticsearch
+
+- name: Configure Kibana
+  hosts: kibana
+  become: yes
+  roles:
+    - kibana
+  vars:
+    elasticsearch_host: "elastic.ru-central1.internal:9200"

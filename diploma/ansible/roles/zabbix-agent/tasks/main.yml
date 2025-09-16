@@ -1,0 +1,23 @@
+- name: Install Zabbix Agent
+  apt:
+    name: zabbix-agent
+    state: present
+    update_cache: yes
+
+- name: Configure Zabbix Agent
+  template:
+    src: zabbix_agentd.conf.j2
+    dest: /etc/zabbix/zabbix_agentd.conf
+  notify: restart zabbix-agent
+
+- name: Ensure Zabbix Agent is running
+  service:
+    name: zabbix-agent
+    state: started
+    enabled: yes
+
+handlers:
+  - name: restart zabbix-agent
+    service:
+      name: zabbix-agent
+      state: restarted

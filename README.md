@@ -1,4 +1,4 @@
 
-# 1. Структура прокта 
+# 1. Структура проекта 
 https://github.com/htment/DIPLOM/tree/main/diploma
 # 2. 

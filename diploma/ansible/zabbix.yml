@@ -1,0 +1,5 @@
+- name: Configure Zabbix Server
+  hosts: zabbix
+  become: yes
+  roles:
+    - zabbix-server
