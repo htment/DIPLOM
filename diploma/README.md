@@ -184,3 +184,62 @@ mkdir -p diploma/terraform diploma/ansible/roles/{nginx,zabbix-agent,filebeat,za
 ```
 
 ---------------------------------------------------------------
+
+
+Создаим файл terraform/secret.auto.tfvars с содержимым:
+
+```
+yandex_cloud_id  = "your_cloud_id"
+yandex_folder_id = "your_folder_id"
+yandex_token     = "your_oauth_token"
+```
+
+
+Развертывание инфраструктуры:
+
+```
+cd terraform
+terraform init
+terraform plan
+terraform apply -auto-approve
+
+```
+Настройка ПО через Ansible:
+```
+bash
+cd ../ansible
+export BASTION_IP=$(terraform output -raw bastion_external_ip)
+export ZABBIX_IP=$(terraform output -raw zabbix_external_ip)
+export KIBANA_IP=$(terraform output -raw kibana_external_ip)
+
+ansible-playbook -i inventory.yml bastion.yml --extra-vars "bastion_ip=$BASTION_IP"
+ansible-playbook -i inventory.yml zabbix.yml --extra-vars "zabbix_ip=$ZABBIX_IP bastion_ip=$BASTION_IP"
+ansible-playbook -i inventory.yml elk.yml --extra-vars "kibana_ip=$KIBANA_IP bastion_ip=$BASTION_IP"
+ansible-playbook -i inventory.yml webservers.yml --extra-vars "bastion_ip=$BASTION_IP"
+
+
+```
+Тестирование:
+
+```
+curl -v $(terraform output -raw alb_external_ip)
+# Проверьте доступность:
+# - Zabbix: http://<zabbix_ip>
+# - Kibana: http://<kibana_ip>:5601
+
+```
+
+
+
+## Измените в main.tf для всех ВМ preemptible = true на preemptible = false
+
+
+Выполните ``terraform apply`` для применения изменений
+
+# Уничтожение инфраструктуры:
+```
+terraform destroy
+```
+Эта конфигурация создает полную отказоустойчивую инфраструктуру с мониторингом, сбором логов и резервным копированием в соответствии с требованиями задания.
+
+
