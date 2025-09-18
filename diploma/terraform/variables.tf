@@ -10,11 +10,7 @@ variable "yandex_folder_id" {
   sensitive   = true
 }
 
-variable "yandex_token" {
-  description = "Yandex OAuth token"
-  type        = string
-  sensitive   = true
-}
+
 
 variable "ssh_public_key" {
   description = "SSH public key for instances"

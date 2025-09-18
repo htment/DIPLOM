@@ -1,5 +1,5 @@
 
-## Получим структуру проекта
+# 1. Получим структуру проекта
 
 
 ```
@@ -65,7 +65,7 @@
 +-------------------+   +-------------------+
 
 ```
-## Получим структуру папок 
+# 2.Получим структуру папок 
 ```
 diploma/
 ├── terraform/
@@ -131,7 +131,7 @@ diploma/
 └── README.md
 ```
 
-### Cоздадим структуру 
+### 2.1 Cоздадим структуру 
 
 
 ```
@@ -184,7 +184,26 @@ mkdir -p diploma/terraform diploma/ansible/roles/{nginx,zabbix-agent,filebeat,za
 ```
 
 ---------------------------------------------------------------
+# 3. Установка terraform
+скачаем архив
+```
+wget https://releases.hashicorp.com/terraform/1.2.1/terraform_1.2.1_linux_amd64.zip
+```
+распакуем
+```
+unzip terraform_*.zip
+```
+поместим в bin
+```
+sudo mv terraform /usr/local/bin/
 
+```
+проверим версию
+```
+terraform -version
+```
+![alt text](image.png)
+---------------------------------------------------------------
 
 Создаим файл terraform/secret.auto.tfvars с содержимым:
 
