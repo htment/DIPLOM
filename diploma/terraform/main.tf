@@ -177,7 +177,7 @@ resource "yandex_vpc_security_group" "elastic-sg" {
     description    = "Elasticsearch cluster"
     protocol       = "TCP"
     port           = 9300
-    self           = true
+    predefined_target = "self_security_group"
   }
 
   ingress {
