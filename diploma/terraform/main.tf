@@ -27,6 +27,15 @@ resource "yandex_vpc_subnet" "private-subnet" {
   route_table_id = yandex_vpc_route_table.private-rt.id
 }
 
+resource "yandex_vpc_subnet" "private-subnet-b" {
+  name           = "private-subnet-b"
+  zone           = "ru-central1-b"
+  network_id     = yandex_vpc_network.diploma-network.id
+  v4_cidr_blocks = ["192.168.30.0/24"]
+  route_table_id = yandex_vpc_route_table.private-rt.id
+}
+
+
 resource "yandex_vpc_gateway" "nat-gateway" {
   name = "nat-gateway"
   shared_egress_gateway {}
@@ -95,6 +104,14 @@ resource "yandex_vpc_security_group" "web-sg" {
     security_group_id = yandex_vpc_security_group.bastion-sg.id
   }
 
+ 
+  ingress {
+    description    = "Health Checks from Yandex ALB"
+    protocol       = "TCP"
+    port           = 80
+    v4_cidr_blocks = ["198.18.235.0/24", "198.18.248.0/24"] 
+  }
+
   egress {
     protocol       = "ANY"
     from_port      = 0
@@ -112,6 +129,14 @@ resource "yandex_vpc_security_group" "alb-sg" {
     protocol       = "TCP"
     port           = 80
     v4_cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description    = "Health Checks from Yandex ALB"
+    protocol       = "TCP"
+    from_port      = 30000
+    to_port        = 65535
+    v4_cidr_blocks = ["198.18.235.0/24", "198.18.248.0/24"]
   }
 
   egress {
@@ -246,12 +271,15 @@ resource "yandex_compute_instance" "bastion" {
   }
 
   metadata = {
-    ssh-keys = "ubuntu:${file(var.ssh_public_key)}"
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data          = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
 
   scheduling_policy {
     preemptible = true
   }
+  
 }
 
 resource "yandex_compute_instance" "web-1" {
@@ -279,7 +307,9 @@ resource "yandex_compute_instance" "web-1" {
   }
 
   metadata = {
-    ssh-keys = "ubuntu:${file(var.ssh_public_key)}"
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
 
   service_account_id = yandex_iam_service_account.vm-sa.id
@@ -307,13 +337,15 @@ resource "yandex_compute_instance" "web-2" {
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.private-subnet.id
+    subnet_id = yandex_vpc_subnet.private-subnet-b.id
     nat       = false
     security_group_ids = [yandex_vpc_security_group.web-sg.id]
   }
 
   metadata = {
-    ssh-keys = "ubuntu:${file(var.ssh_public_key)}"
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
 
   service_account_id = yandex_iam_service_account.vm-sa.id
@@ -347,7 +379,9 @@ resource "yandex_compute_instance" "zabbix" {
   }
 
   metadata = {
-    ssh-keys = "ubuntu:${file(var.ssh_public_key)}"
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
 
   scheduling_policy {
@@ -380,7 +414,9 @@ resource "yandex_compute_instance" "elastic" {
   }
 
   metadata = {
-    ssh-keys = "ubuntu:${file(var.ssh_public_key)}"
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
 
   service_account_id = yandex_iam_service_account.vm-sa.id
@@ -415,6 +451,8 @@ resource "yandex_compute_instance" "kibana" {
 
   metadata = {
     ssh-keys = "ubuntu:${file(var.ssh_public_key)}"
+    user-data = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
 
   scheduling_policy {
@@ -429,7 +467,7 @@ resource "yandex_alb_target_group" "web-tg" {
     ip_address = yandex_compute_instance.web-1.network_interface.0.ip_address
   }
   target {
-    subnet_id  = yandex_vpc_subnet.private-subnet.id
+    subnet_id  = yandex_vpc_subnet.private-subnet-b.id
     ip_address = yandex_compute_instance.web-2.network_interface.0.ip_address
   }
 }

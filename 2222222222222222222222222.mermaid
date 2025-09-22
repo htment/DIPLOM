@@ -1,0 +1,40 @@
+flowchart TD
+    User[Пользователь]
+    ALB[Application Load Balancer<br/>Публичный IP:]
+
+    subgraph YC_VPC [Yandex Cloud VPC]
+        direction LR
+
+        subgraph Public_Subnet [Публичная подсеть]
+            Bastion[Бастион-хост<br/>Jump Server<br/>ssh: 22]
+            Zabbix[Zabbix Server<br/>web: 80, 443]
+            Kibana[Kibana<br/>web: 5601]
+        end
+
+        subgraph Private_Subnet [Приватная подсеть]
+            Web1[Веб-сервер 1<br/>nginx: 80<br/>zabbix-agent<br/>filebeat]
+            Web2[Веб-сервер 2<br/>nginx: 80<br/>zabbix-agent<br/>filebeat]
+            ES[Elasticsearch<br/>http: 9200]
+        end
+
+        TG[Target Group]
+        NAT[NAT-шлюз]
+    end
+
+    User -->|Запрос на сайт| ALB
+    ALB -->|Маршрутизация трафика| TG
+    TG --> Web1
+    TG --> Web2
+
+    Web1 -->|Логи| ES
+    Web2 -->|Логи| ES
+    ES -->|Данные для дашбордов| Kibana
+
+   
+    Web2 -->|Метрики| Zabbix
+    Web1 -->|Метрики| Zabbix
+    ES -->|Метрики| Zabbix
+
+    Bastion -->|SSH-доступ ко всем ВМ| Private_Subnet
+    Private_Subnet -->|Выходной интернет| NAT
+  

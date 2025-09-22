@@ -1,2 +1,10 @@
 secret.auto.tfvars
 .authorized_key.json
+
+*.tfvars
+*.tfstate
+*.tfstate.backup
+.terraform/
+*.pem
+*.key
+ssh_keys/
