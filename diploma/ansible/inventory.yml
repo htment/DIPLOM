@@ -3,30 +3,33 @@ all:
     ansible_ssh_common_args: >
       -o StrictHostKeyChecking=no
       -o UserKnownHostsFile=/dev/null
-      -J ubuntu@{{ bastion_ip }}
+      -J user@89.169.147.251
 
   children:
     bastion:
       hosts:
         bastion.ru-central1.internal:
-          ansible_host: "{{ bastion_ip }}"
+          ansible_host: "89.169.147.251"
           ansible_ssh_common_args: ""
 
     webservers:
       hosts:
         web-1.ru-central1.internal:
+          ansible_host: "192.168.20.20"
         web-2.ru-central1.internal:
+          ansible_host: "192.168.30.21"
 
     elastic:
       hosts:
         elastic.ru-central1.internal:
+          ansible_host: "192.168.20.16"
 
     zabbix:
       hosts:
         zabbix.ru-central1.internal:
-          ansible_host: "{{ zabbix_ip }}"
+          ansible_host: "192.168.10.24"
 
     kibana:
       hosts:
         kibana.ru-central1.internal:
-          ansible_host: "{{ kibana_ip }}"
+          ansible_host: "51.250.90.178"

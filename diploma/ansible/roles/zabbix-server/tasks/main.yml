@@ -25,9 +25,8 @@
     name: zabbix-server
     state: started
     enabled: yes
-
-handlers:
-  - name: restart zabbix-server
-    service:
-      name: zabbix-server
-      state: restarted
+    
+- name: restart zabbix-server
+  service:
+    name: zabbix-server
+    state: restarted

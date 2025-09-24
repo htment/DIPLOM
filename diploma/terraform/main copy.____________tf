@@ -271,11 +271,10 @@ resource "yandex_compute_instance" "bastion" {
   }
 
   metadata = {
-    "user-data"          = file("${path.module}/cloud-init.yml")
-    "serial-port-enable" = "1"
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data          = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
-
-
 
   scheduling_policy {
     preemptible = true
@@ -308,8 +307,9 @@ resource "yandex_compute_instance" "web-1" {
   }
 
   metadata = {
-    "serial-port-enable" = "1"
-    "user-data"          = file("${path.module}/cloud-init.yml")
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
 
   service_account_id = yandex_iam_service_account.vm-sa.id
@@ -343,8 +343,9 @@ resource "yandex_compute_instance" "web-2" {
   }
 
   metadata = {
-    "serial-port-enable" = "1"
-    "user-data"          = file("${path.module}/cloud-init.yml")
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
 
   service_account_id = yandex_iam_service_account.vm-sa.id
@@ -378,8 +379,9 @@ resource "yandex_compute_instance" "zabbix" {
   }
 
   metadata = {
-    "serial-port-enable" = "1"
-    "user-data"          = file("${path.module}/cloud-init.yml")
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
 
   scheduling_policy {
@@ -412,8 +414,9 @@ resource "yandex_compute_instance" "elastic" {
   }
 
   metadata = {
-    "serial-port-enable" = "1"
-    "user-data"          = file("${path.module}/cloud-init.yml")
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
 
   service_account_id = yandex_iam_service_account.vm-sa.id
@@ -447,8 +450,9 @@ resource "yandex_compute_instance" "kibana" {
   }
 
   metadata = {
-    "serial-port-enable" = "1"
-    "user-data"          = file("${path.module}/cloud-init.yml")
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
 
   scheduling_policy {

@@ -205,16 +205,45 @@ terraform -version
 ![alt text](image.png)
 ---------------------------------------------------------------
 
-Создаим файл terraform/secret.auto.tfvars с содержимым:
+Создаим файл terraform.tfvars с содержимым:
 
 ```
 yandex_cloud_id  = "your_cloud_id"
 yandex_folder_id = "your_folder_id"
 yandex_token     = "your_oauth_token"
+
+```
+создадим файл cloud-init.yml
+создалим пользователя user и админ 
+```
+#cloud-config
+users:
+  - name: user
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - ВАШ ssh КЛЮЧ
+
+  - name: admin
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    lock_passwd: false
+    passwd: "$6$rounds=4096$wPs2z7VqC9$X6q5h7W8pY2rT3sV1qZ9mN0bC4dF7gH2jK5lP8oR6tS9uY4vAxE3zB1cM6nDf"
+
+ssh_pwauth: true
+disable_root: false
+chpasswd:
+  list: |
+    admin:123456
+  expire: false
 ```
 
 
-Развертывание инфраструктуры:
+![alt text](image-1.png)
+
+# 4. Развертывание инфраструктуры:
 
 ```
 cd terraform
@@ -223,16 +252,60 @@ terraform plan
 terraform apply -auto-approve
 
 ```
-Настройка ПО через Ansible:
-```
-bash
-cd ../ansible
-export BASTION_IP=$(terraform output -raw bastion_external_ip)
-export ZABBIX_IP=$(terraform output -raw zabbix_external_ip)
-export KIBANA_IP=$(terraform output -raw kibana_external_ip)
+![alt text](image-2.png)
 
-ansible-playbook -i inventory.yml bastion.yml --extra-vars "bastion_ip=$BASTION_IP"
-ansible-playbook -i inventory.yml zabbix.yml --extra-vars "zabbix_ip=$ZABBIX_IP bastion_ip=$BASTION_IP"
+![alt text](image-3.png)
+
+![alt text](image-4.png)
+
+Проверим
+```
+ssh -J user@89.169.147.251 user@192.168.10.24
+```
+```
+
+export BASTION_EXT_IP=$(terraform output -raw bastion_external_ip)
+export ZABBIX_EXT_IP=$(terraform output -raw zabbix_external_ip)
+export KIBANA_EXT_IP=$(terraform output -raw kibana_external_ip)
+export ZABBIX_INT_IP=$(terraform output -raw zabbix_internal_ip)
+
+```
+
+## Настройка ПО через Ansible:
+
+Установим ansible
+
+
+```
+sudo apt install ansible
+```
+
+
+```
+cd ../ansible
+```
+
+запустим 
+
+``external.sh``
+
+
+создадим файлы vars.yml inventory.yml
+
+```
+bash external.sh
+
+```
+## Проверим все хосты
+```
+ansible all -m ping
+
+```
+![alt text](image-5.png)
+
+```
+ansible-playbook -i inventory.yml bastion.yml  
+ansible-playbook -i inventory.yml zabbix.yml 
 ansible-playbook -i inventory.yml elk.yml --extra-vars "kibana_ip=$KIBANA_IP bastion_ip=$BASTION_IP"
 ansible-playbook -i inventory.yml webservers.yml --extra-vars "bastion_ip=$BASTION_IP"
 
@@ -242,6 +315,8 @@ ansible-playbook -i inventory.yml webservers.yml --extra-vars "bastion_ip=$BASTI
 
 ```
 curl -v $(terraform output -raw alb_external_ip)
+
+
 # Проверьте доступность:
 # - Zabbix: http://<zabbix_ip>
 # - Kibana: http://<kibana_ip>:5601

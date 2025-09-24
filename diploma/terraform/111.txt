@@ -271,11 +271,10 @@ resource "yandex_compute_instance" "bastion" {
   }
 
   metadata = {
-    "user-data"          = file("${path.module}/cloud-init.yml")
-    "serial-port-enable" = "1"
+    ssh-keys = "user:${file(var.ssh_public_key)}"
+    user-data          = file("./cloud-init.yml")
+    serial-port-enable = 1
   }
-
-
 
   scheduling_policy {
     preemptible = true
@@ -307,10 +306,10 @@ resource "yandex_compute_instance" "web-1" {
     security_group_ids = [yandex_vpc_security_group.web-sg.id]
   }
 
-  metadata = {
-    "serial-port-enable" = "1"
-    "user-data"          = file("${path.module}/cloud-init.yml")
-  }
+metadata = {
+  "serial-port-enable" = "1"
+  "user-data"          = file("${path.module}/cloud-init.yml")
+}
 
   service_account_id = yandex_iam_service_account.vm-sa.id
   scheduling_policy {
@@ -342,10 +341,10 @@ resource "yandex_compute_instance" "web-2" {
     security_group_ids = [yandex_vpc_security_group.web-sg.id]
   }
 
-  metadata = {
-    "serial-port-enable" = "1"
-    "user-data"          = file("${path.module}/cloud-init.yml")
-  }
+metadata = {
+  "serial-port-enable" = "1"
+  "user-data"          = file("${path.module}/cloud-init.yml")
+}
 
   service_account_id = yandex_iam_service_account.vm-sa.id
   scheduling_policy {
@@ -377,10 +376,10 @@ resource "yandex_compute_instance" "zabbix" {
     security_group_ids = [yandex_vpc_security_group.zabbix-sg.id]
   }
 
-  metadata = {
-    "serial-port-enable" = "1"
-    "user-data"          = file("${path.module}/cloud-init.yml")
-  }
+metadata = {
+  "serial-port-enable" = "1"
+  "user-data"          = file("${path.module}/cloud-init.yml")
+}
 
   scheduling_policy {
     preemptible = true
@@ -411,10 +410,10 @@ resource "yandex_compute_instance" "elastic" {
     security_group_ids = [yandex_vpc_security_group.elastic-sg.id]
   }
 
-  metadata = {
-    "serial-port-enable" = "1"
-    "user-data"          = file("${path.module}/cloud-init.yml")
-  }
+metadata = {
+  "serial-port-enable" = "1"
+  "user-data"          = file("${path.module}/cloud-init.yml")
+}
 
   service_account_id = yandex_iam_service_account.vm-sa.id
   scheduling_policy {
@@ -446,10 +445,10 @@ resource "yandex_compute_instance" "kibana" {
     security_group_ids = [yandex_vpc_security_group.kibana-sg.id]
   }
 
-  metadata = {
-    "serial-port-enable" = "1"
-    "user-data"          = file("${path.module}/cloud-init.yml")
-  }
+metadata = {
+  "serial-port-enable" = "1"
+  "user-data"          = file("${path.module}/cloud-init.yml")
+}
 
   scheduling_policy {
     preemptible = true
@@ -549,4 +548,91 @@ resource "yandex_compute_snapshot_schedule" "daily-snapshots" {
     yandex_compute_instance.elastic.boot_disk.0.disk_id,
     yandex_compute_instance.kibana.boot_disk.0.disk_id
   ]
+}output "bastion_external_ip" {
+  value = yandex_compute_instance.bastion.network_interface.0.nat_ip_address
 }
+
+output "zabbix_internal_ip" {
+  value = yandex_compute_instance.zabbix.network_interface.0.ip_address
+}
+
+output "zabbix_external_ip" {
+  value = yandex_compute_instance.zabbix.network_interface.0.nat_ip_address
+}
+
+output "kibana_external_ip" {
+  value = yandex_compute_instance.kibana.network_interface.0.nat_ip_address
+}
+
+output "alb_external_ip" {
+  value = yandex_alb_load_balancer.web-alb.listener.0.endpoint.0.address.0.external_ipv4_address.0.address
+}
+
+output "web_1_internal_ip" {
+  value = yandex_compute_instance.web-1.network_interface.0.ip_address
+}
+
+output "web_2_internal_ip" {
+  value = yandex_compute_instance.web-2.network_interface.0.ip_address
+}
+
+output "elastic_internal_ip" {
+  value = yandex_compute_instance.elastic.network_interface.0.ip_address
+}
+provider "yandex" {
+  cloud_id                 = var.yandex_cloud_id
+  folder_id                = var.yandex_folder_id  
+  service_account_key_file = file("~/.authorized_key.json")
+  zone      = "ru-central1-a"
+}
+
+
+variable "yandex_cloud_id" {
+  description = "Yandex Cloud ID"
+  type        = string
+  sensitive   = true
+}
+
+variable "yandex_folder_id" {
+  description = "Yandex Folder ID"
+  type        = string
+  sensitive   = true
+}
+
+
+
+variable "ssh_public_key" {
+  description = "SSH public key for instances"
+  type        = string
+  default     = "~/.ssh/id_ed25519.pub"
+}
+
+variable "ssh_private_key_path" {
+  description = "Path to SSH private key file"
+  type        = string
+  default     = "~/.ssh/id_ed25519"
+}
+
+
+
+locals {
+  ssh_public_key  = fileexists(var.ssh_public_key) ? file(var.ssh_public_key) : ""
+  ssh_private_key = fileexists(var.ssh_private_key_path) ? file(var.ssh_private_key_path) : ""
+}#cloud-config
+users:
+  - name: user
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOxAJ9lQnCS5JnQrSrV5PpbAMGxoODP0VzQhRewbrJtn art@debian-test-CLEAN
+
+  - name: admin
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    lock_passwd: false
+    passwd: "$6$rounds=4096$wPs2z7VqC9$X6q5h7W8pY2rT3sV1qZ9mN0bC4dF7gH2jK5lP8oR6tS9uY4vAxE3zB1cM6nDf"
+
+ssh_pwauth: true
+disable_root: false
