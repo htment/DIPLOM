@@ -1,0 +1,54 @@
+---
+- name: Check and restart Zabbix Server
+  hosts: zabbix
+  become: yes
+
+  tasks:
+    - name: Check current Zabbix Server status
+      systemd:
+        name: zabbix-server
+      register: zabbix_status
+
+    - name: Show current status
+      debug:
+        msg: |
+          Zabbix Server Status:
+          - Active: {{ zabbix_status.status.ActiveState }}
+          - Sub: {{ zabbix_status.status.SubState }}
+          - Since: {{ zabbix_status.status.StateChangeTime }}
+
+    - name: Validate Zabbix configuration
+      command: zabbix_server -t -c /etc/zabbix/zabbix_server.conf
+      register: config_test
+      changed_when: false
+      failed_when: config_test.rc != 0
+
+    - name: Show configuration test results
+      debug:
+        var: config_test.stdout
+
+    - name: Restart Zabbix Server if configuration is valid
+      service:
+        name: zabbix-server
+        state: restarted
+      when: config_test.rc == 0
+
+    - name: Check Zabbix Server logs
+      command: journalctl -u zabbix-server -n 20 --no-pager
+      register: zabbix_logs
+      changed_when: false
+
+    - name: Display recent logs
+      debug:
+        var: zabbix_logs.stdout_lines
+
+    - name: Check if Zabbix port is listening
+      wait_for:
+        port: 10051
+        host: 127.0.0.1
+        timeout: 10
+      register: port_check
+
+    - name: Port check result
+      debug:
+        msg: "Zabbix Server port 10051 is {{ 'listening' if port_check.elapsed != 0 else 'not listening' }}"

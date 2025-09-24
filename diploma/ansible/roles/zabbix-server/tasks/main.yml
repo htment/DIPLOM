@@ -1,32 +1,240 @@
+---
+- name: Update package cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install PostgreSQL server and client
+  apt:
+    name:
+      - postgresql
+      - postgresql-client
+      - python3-psycopg2
+    state: present
+
+- name: Ensure PostgreSQL is running
+  systemd:
+    name: postgresql
+    state: started
+    enabled: yes
+
 - name: Install Zabbix Server
   apt:
     name: zabbix-server-pgsql
     state: present
-    update_cache: yes
+  notify: restart zabbix-server
 
 - name: Install Zabbix Frontend
   apt:
     name: zabbix-frontend-php
     state: present
 
-- name: Install PostgreSQL client
+- name: Install Apache
   apt:
-    name: postgresql-client
+    name: apache2
     state: present
+
+- name: Enable Apache modules
+  command: a2enmod {{ item }}
+  with_items:
+    - rewrite
+    - ssl
+    - headers
+  notify: restart apache2
+
+- name: Check Zabbix PHP configuration
+  stat:
+    path: /etc/zabbix/apache.conf
+  register: zabbix_apache_conf
+
+- name: Copy Zabbix Apache configuration if missing
+  copy:
+    content: |
+      Alias /zabbix /usr/share/zabbix
+
+      <Directory "/usr/share/zabbix">
+          Options FollowSymLinks
+          AllowOverride None
+          Require all granted
+
+          <IfModule mod_php8.c>
+              php_value max_execution_time 300
+              php_value memory_limit 128M
+              php_value post_max_size 16M
+              php_value upload_max_filesize 2M
+              php_value max_input_time 300
+              php_value max_input_vars 10000
+              php_value always_populate_raw_post_data -1
+              php_value date.timezone Europe/Moscow
+          </IfModule>
+      </Directory>
+
+      <Directory "/usr/share/zabbix/conf">
+          Require all denied
+      </Directory>
+
+      <Directory "/usr/share/zabbix/app">
+          Require all denied
+      </Directory>
+
+      <Directory "/usr/share/zabbix/include">
+          Require all denied
+      </Directory>
+
+      <Directory "/usr/share/zabbix/local">
+          Require all denied
+      </Directory>
+    dest: /etc/apache2/conf-available/zabbix.conf
+  when: not zabbix_apache_conf.stat.exists
+  notify: restart apache2
+
+- name: Enable Zabbix configuration
+  command: a2enconf zabbix
+  notify: restart apache2
+
+- name: Create Zabbix log directory
+  file:
+    path: /var/log/zabbix
+    state: directory
+    owner: zabbix
+    group: zabbix
+    mode: 0755
+
+- name: Create PostgreSQL user and database
+  become_user: postgres
+  postgresql_user:
+    name: "{{ zabbix_db_user }}"
+    password: "{{ zabbix_db_password }}"
+    role_attr_flags: CREATEDB
+    state: present
+
+- name: Create Zabbix database
+  become_user: postgres
+  postgresql_db:
+    name: "{{ zabbix_db_name }}"
+    owner: "{{ zabbix_db_user }}"
+    encoding: UTF8
+    state: present
+
+- name: Check available SQL files
+  find:
+    paths: /usr/share/zabbix-server-pgsql/
+    patterns: "*.sql.gz"
+  register: sql_files
+
+- name: Import Zabbix schema
+  become_user: postgres
+  command: >
+    bash -c 'for file in /usr/share/zabbix-server-pgsql/*.sql.gz; do
+      echo "Importing $file";
+      zcat "$file" | PGPASSWORD="{{ zabbix_db_password }}" psql -h localhost -U "{{ zabbix_db_user }}" -d "{{ zabbix_db_name }}";
+    done'
+
+- name: Check database connection
+  become_user: postgres
+  postgresql_query:
+    query: "SELECT version();"
+    login_user: "{{ zabbix_db_user }}"
+    login_password: "{{ zabbix_db_password }}"
+    login_host: "{{ zabbix_db_host }}"
+    db: "{{ zabbix_db_name }}"
+  register: db_check
+  ignore_errors: yes
+
+- name: Show database check result
+  debug:
+    var: db_check
+
+- name: Create Zabbix configuration directory
+  file:
+    path: /etc/zabbix
+    state: directory
+    mode: 0755
 
 - name: Configure Zabbix Server
   template:
     src: zabbix_server.conf.j2
     dest: /etc/zabbix/zabbix_server.conf
+    owner: root
+    group: zabbix
+    mode: 0640
   notify: restart zabbix-server
+
+- name: Check PHP configuration
+  stat:
+    path: /etc/php/*/apache2/conf.d/zabbix.ini
+  register: php_zabbix_ini
+
+- name: Create PHP configuration for Zabbix
+  copy:
+    content: |
+      max_execution_time=300
+      memory_limit=128M
+      post_max_size=16M
+      upload_max_filesize=2M
+      max_input_time=300
+      max_input_vars=10000
+      always_populate_raw_post_data=-1
+      date.timezone=Europe/Moscow
+    dest: /etc/php/8.2/apache2/conf.d/zabbix.ini
+  when: not php_zabbix_ini.stat.exists
+  notify: restart apache2
+
+- name: Ensure Apache is running
+  service:
+    name: apache2
+    state: started
+    enabled: yes
 
 - name: Ensure Zabbix Server is running
   service:
     name: zabbix-server
     state: started
     enabled: yes
-    
-- name: restart zabbix-server
-  service:
-    name: zabbix-server
-    state: restarted
+
+- name: Wait for Zabbix Server to start
+  wait_for:
+    port: 10051
+    host: "{{ ansible_default_ipv4.address }}"
+    timeout: 60
+    delay: 5
+
+- name: Check Apache configuration syntax
+  command: apache2ctl configtest
+  register: apache_config_test
+  changed_when: false
+
+- name: Show Apache configuration test result
+  debug:
+    var: apache_config_test.stdout
+
+- name: Check available Apache configurations
+  find:
+    paths: /etc/apache2
+    patterns: "*zabbix*"
+    file_type: any
+  register: apache_zabbix_files
+
+- name: Show Apache Zabbix files
+  debug:
+    var: apache_zabbix_files.files
+
+- name: Check Zabbix web directory
+  stat:
+    path: /usr/share/zabbix
+  register: zabbix_web_dir
+
+- name: Show Zabbix web directory info
+  debug:
+    var: zabbix_web_dir.stat
+
+- name: Check web interface accessibility
+  uri:
+    url: "http://localhost/zabbix"
+    status_code: 200
+  register: web_check
+  ignore_errors: yes
+
+- name: Show web interface status
+  debug:
+    msg: "Zabbix web interface is {{ 'accessible' if web_check.status == 200 else 'not accessible' }}"

@@ -1,0 +1,80 @@
+---
+- name: Complete Zabbix removal
+  hosts: zabbix
+  become: yes
+
+  tasks:
+    - name: Stop Zabbix Server
+      service:
+        name: zabbix-server
+        state: stopped
+      ignore_errors: yes
+
+    - name: Stop Zabbix Agent
+      service:
+        name: zabbix-agent
+        state: stopped
+      ignore_errors: yes
+
+    - name: Remove Zabbix packages
+      apt:
+        name:
+          - zabbix-server-pgsql
+          - zabbix-frontend-php
+          - zabbix-agent
+          - zabbix-agent2
+        state: absent
+        purge: yes
+
+    - name: Remove Zabbix configuration files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/zabbix
+        - /var/log/zabbix
+        - /var/run/zabbix
+        - /usr/lib/zabbix
+
+    - name: Remove Zabbix data directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/zabbix
+        - /usr/share/zabbix
+
+    - name: Remove Zabbix user and group
+      user:
+        name: zabbix
+        state: absent
+        remove: yes
+      ignore_errors: yes
+
+    - name: Clean up package cache
+      apt:
+        autoclean: yes
+
+    - name: Verify Zabbix removal
+      command: dpkg -l | grep zabbix
+      register: zabbix_installed
+      changed_when: false
+      failed_when: zabbix_installed.rc == 0
+
+    - name: Removal verification result
+      debug:
+        msg: "Zabbix has been successfully removed"
+      when: zabbix_installed.rc != 0
+
+    - name: Show remaining Zabbix files (if any)
+      find:
+        paths: /
+        patterns: "*zabbix*"
+        file_type: any
+      register: remaining_files
+      changed_when: false
+
+    - name: Display remaining files
+      debug:
+        var: remaining_files.files
+      when: remaining_files.files | length > 0
