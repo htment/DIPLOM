@@ -21,7 +21,9 @@ terraform output
 BASTION_EXT_IP=$(terraform output -raw bastion_external_ip)
 ZABBIX_EXT_IP=$(terraform output -raw zabbix_external_ip)
 KIBANA_EXT_IP=$(terraform output -raw kibana_external_ip)
+
 ZABBIX_INT_IP=$(terraform output -raw zabbix_internal_ip)
+KIBANA_INT_IP=$(terraform output -raw kibana_internal_ip)
 WEB_1_INT_IP=$(terraform output -raw web_1_internal_ip)
 WEB_2_INT_IP=$(terraform output -raw web_2_internal_ip)
 ELASTIC_INT_IP=$(terraform output -raw elastic_internal_ip)
@@ -31,7 +33,9 @@ echo -e "\n=== Exported Variables ==="
 echo "BASTION_EXT_IP: $BASTION_EXT_IP"
 echo "ZABBIX_EXT_IP: $ZABBIX_EXT_IP"
 echo "KIBANA_EXT_IP: $KIBANA_EXT_IP"
+
 echo "ZABBIX_INT_IP: $ZABBIX_INT_IP"
+echo "KIBANA_INT_IP: $KIBANA_INT_IP"
 echo "WEB_1_INT_IP: $WEB_1_INT_IP"
 echo "WEB_2_INT_IP: $WEB_2_INT_IP"
 echo "ELASTIC_INT_IP: $ELASTIC_INT_IP"
@@ -42,7 +46,9 @@ cat > ../ansible/vars.yml << EOF
 BASTION_EXT_IP: $BASTION_EXT_IP
 ZABBIX_EXT_IP: $ZABBIX_EXT_IP
 KIBANA_EXT_IP: $KIBANA_EXT_IP
+
 ZABBIX_INT_IP: $ZABBIX_INT_IP
+KIBANA_INT_IP: $KIBANA_INT_IP
 WEB_1_INT_IP: $WEB_1_INT_IP
 WEB_2_INT_IP: $WEB_2_INT_IP
 ELASTIC_INT_IP: $ELASTIC_INT_IP
@@ -84,7 +90,7 @@ all:
     kibana:
       hosts:
         kibana.ru-central1.internal:
-          ansible_host: "$KIBANA_EXT_IP"
+          ansible_host: "$KIBANA_INT_IP"
 EOF
 
 echo "Файлы vars.yml и inventory.yml созданы успешно"

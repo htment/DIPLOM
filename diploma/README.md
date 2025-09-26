@@ -299,6 +299,8 @@ bash external.sh
 ## Проверим все хосты
 ```
 ansible all -m ping
+2 раза
+ansible all -m ping
 
 ```
 ![alt text](image-5.png)
