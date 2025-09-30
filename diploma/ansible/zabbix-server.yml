@@ -1,0 +1,64 @@
+- name: Configure Zabbix Server
+  hosts: zabbix
+  become: yes
+  vars_files:
+    - vars.yml  
+  vars:
+    zabbix_db_host: localhost
+    zabbix_db_name: zabbix
+    zabbix_db_user: zabbix
+    zabbix_db_password: zabbix
+    zabbix_url: "http://{{ ZABBIX_EXT_IP }}/zabbix"  
+    zabbix_api_user: "Admin"
+    zabbix_api_password: "zabbix"
+    zabbix_server_ip: "{{ ZABBIX_INT_IP }}"
+
+
+
+
+
+  pre_tasks:
+    - name: Check Ubuntu version
+      command: lsb_release -cs
+      register: ubuntu_codename
+      changed_when: false
+
+    - name: Fail if not Ubuntu Bionic
+      fail:
+        msg: "This playbook is designed for Ubuntu Bionic (18.04). Detected: {{ ubuntu_codename.stdout }}"
+      when: ubuntu_codename.stdout != 'bionic'
+
+    - name: Check for AppArmor
+      command: aa-status
+      register: apparmor_status
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Disable AppArmor temporarily if active
+      service:
+        name: apparmor
+        state: stopped
+      when: apparmor_status.rc == 0
+
+  roles:
+    - zabbix-server
+
+
+  post_tasks:
+    - name: Check Zabbix Server logs
+      command: journalctl -u zabbix-server -n 20 --no-pager
+      register: zabbix_logs
+      changed_when: false
+
+    - name: Display recent logs
+      debug:
+        var: zabbix_logs.stdout_lines
+
+    - name: Check Zabbix version
+      command: zabbix_server --version
+      register: zabbix_version
+      changed_when: false
+
+    - name: Display Zabbix version
+      debug:
+        var: zabbix_version.stdout_lines

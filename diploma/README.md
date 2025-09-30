@@ -307,10 +307,21 @@ ansible all -m ping
 
 ```
 ansible-playbook -i inventory.yml bastion.yml  
+```
+```
 ansible-playbook -i inventory.yml zabbix.yml 
+```
+![alt text](image-6.png)
+![alt text](image-7.png)
+![alt text](image-9.png)
+![alt text](image-11.png)
+![alt text](image-12.png)
+
+
+
+```
 ansible-playbook -i inventory.yml elk.yml --extra-vars "kibana_ip=$KIBANA_IP bastion_ip=$BASTION_IP"
 ansible-playbook -i inventory.yml webservers.yml --extra-vars "bastion_ip=$BASTION_IP"
-
 
 ```
 Тестирование:

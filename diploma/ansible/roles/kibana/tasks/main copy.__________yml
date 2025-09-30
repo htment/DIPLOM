@@ -1,0 +1,22 @@
+- name: Install Docker
+  apt:
+    name: docker.io
+    state: present
+    update_cache: yes
+
+- name: Run Kibana container
+  docker_container:
+    name: kibana
+    image: docker.elastic.co/kibana/kibana:7.17.9
+    state: started
+    restart_policy: always
+    env:
+      ELASTICSEARCH_HOSTS: "http://{{ elasticsearch_host }}"
+    ports:
+      - "5601:5601"
+
+- name: Wait for Kibana to start
+  wait_for:
+    port: 5601
+    delay: 10
+    state: started

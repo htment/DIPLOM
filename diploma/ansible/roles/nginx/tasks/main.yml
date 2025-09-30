@@ -1,3 +1,10 @@
+- name: Stop and disable Apache2 if present
+  service:
+    name: apache2
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+
 - name: Install nginx
   apt:
     name: nginx
@@ -11,6 +18,7 @@
     owner: www-data
     group: www-data
     mode: '0644'
+  notify: Restart nginx
 
 - name: Ensure nginx is running
   service:

@@ -1,48 +1,174 @@
-- name: Download and install Filebeat
+- name: Обновить кеш пакетов
   apt:
-    deb: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-7.17.9-amd64.deb
+    update_cache: yes
+
+- name: Установить необходимые пакеты
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - python3-pip
+      - libffi-dev
+      - python3-dev
+      - gcc
     state: present
 
-- name: Configure Filebeat
-  template:
-    src: filebeat.yml.j2
-    dest: /etc/filebeat/filebeat.yml
-  notify: restart filebeat
+- name: Обновить pip до последней версии
+  pip:
+    name: pip
+    state: latest
 
-- name: Enable nginx module
-  command:
-    cmd: filebeat modules enable nginx
-    creates: /etc/filebeat/modules.d/nginx.yml
+- name: Скачать containerd.io
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/dists/bionic/pool/stable/amd64/containerd.io_1.4.3-1_amd64.deb
+    dest: /tmp/containerd.io.deb
+    mode: '0644'
 
-- name: Set up prospectors
-  copy:
-    content: |
-      - type: log
-        enabled: true
-        paths:
-          - /var/log/nginx/access.log
-        fields:
-          type: nginx-access
-        fields_under_root: true
+- name: Скачать docker-ce-cli
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/dists/bionic/pool/stable/amd64/docker-ce-cli_19.03.15~3-0~ubuntu-bionic_amd64.deb
+    dest: /tmp/docker-ce-cli.deb
+    mode: '0644'
 
-      - type: log
-        enabled: true
-        paths:
-          - /var/log/nginx/error.log
-        fields:
-          type: nginx-error
-        fields_under_root: true
-    dest: /etc/filebeat/prospectors.d/nginx.yml
-  notify: restart filebeat
+- name: Скачать docker-ce
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/dists/bionic/pool/stable/amd64/docker-ce_19.03.15~3-0~ubuntu-bionic_amd64.deb
+    dest: /tmp/docker-ce.deb
+    mode: '0644'
 
-- name: Ensure Filebeat is running
-  service:
-    name: filebeat
+- name: Установить containerd.io
+  apt:
+    deb: /tmp/containerd.io.deb
+    state: present
+
+- name: Установить docker-ce-cli
+  apt:
+    deb: /tmp/docker-ce-cli.deb
+    state: present
+
+- name: Установить docker-ce
+  apt:
+    deb: /tmp/docker-ce.deb
+    state: present
+
+- name: Установить Docker Compose
+  pip:
+    name: docker-compose==1.29.2
+    state: present
+
+- name: Добавить пользователя в группу docker
+  user:
+    name: "{{ ansible_ssh_user }}"
+    groups: docker
+    append: yes
+
+- name: Запустить и включить Docker
+  systemd:
+    name: docker
     state: started
     enabled: yes
 
-handlers:
-  - name: restart filebeat
-    service:
-      name: filebeat
-      state: restarted
+- name: Создать директорию для проектных файлов
+  file:
+    path: /home/{{ ansible_ssh_user }}/FileBeat
+    state: directory
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+  tags: filebeat
+
+- name: Создать директорию для filebeat
+  file:
+    path: /home/{{ ansible_ssh_user }}/FileBeat/filebeat
+    state: directory
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+  tags: filebeat
+
+- name: Создать директорию для logstash
+  file:
+    path: /home/{{ ansible_ssh_user }}/FileBeat/logstash/pipeline
+    state: directory
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+  tags: filebeat
+
+- name: Копировать файл filebeat.yml
+  copy:
+    src: files/filebeat.yml
+    dest: /home/{{ ansible_ssh_user }}/FileBeat/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: '0644'
+  tags: filebeat
+
+- name: Копировать файл logstash.conf
+  copy:
+    src: files/logstash.conf
+    dest: /home/{{ ansible_ssh_user }}/FileBeat/logstash/pipeline/logstash.conf
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0644'
+  tags: filebeat
+  
+- name: Копировать файл docker-compose.yml
+  copy:
+    dest: /home/{{ ansible_ssh_user }}/FileBeat/docker-compose.yml
+    content: |
+      version: '3'
+      services:
+        # elasticsearch:
+        #   image: elasticsearch:8.12.0
+        #   environment:
+        #     - discovery.type=single-node
+        #     - cluster.name=my_art_cluster_name
+        #     - ES_JAVA_OPTS=-Xms1g -Xmx1g
+        #   ports:
+        #     - "9200:9200"
+        #   volumes:
+        #     - es_data:/usr/share/elasticsearch/data
+
+        # kibana:
+        #   image: kibana:8.12.0
+        #   ports:
+        #     - "5601:5601"
+        #   depends_on:
+        #     - elasticsearch
+
+        # logstash:
+        #   image: logstash:8.12.0
+        #   volumes:
+        #     - ./logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+        #     - ./nginx:/var/log/nginx:ro
+        #   ports:
+        #     - "5044:5044"
+        #     - "5000:5000"
+        #     - "5140:5140/udp"
+        #   depends_on:
+        #     - elasticsearch
+
+        filebeat:
+          image: elastic/filebeat:8.12.0
+          user: root
+          volumes:
+            - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+            - ./nginx:/var/log/nginx:ro
+        #  depends_on:
+        #    - elasticsearch
+        #    - logstash
+
+        nginx:
+          image: nginx:latest
+          ports:
+            - "8080:80"
+          volumes:
+            - ./nginx:/var/log/nginx
+
+      volumes:
+        es_data:
+
+- name: Запустить docker-compose
+  community.docker.docker_compose:
+    project_src: /home/{{ ansible_ssh_user }}/FileBeat
+    state: present

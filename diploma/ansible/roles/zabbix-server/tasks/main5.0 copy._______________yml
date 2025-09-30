@@ -58,9 +58,9 @@
     encoding: UTF8
     state: present
 
-- name: Configure pg_hba.conf for md5 authentication
+- name: Configure pg_hba.conf for Zabbix user
   lineinfile:
-    path: /etc/postgresql/10/main/pg_hba.conf  # Для Ubuntu 18.04 (PostgreSQL 10); если версия другая, скорректируйте
+    path: /etc/postgresql/10/main/pg_hba.conf
     line: 'local   all   {{ zabbix_db_user }}   md5'
     insertafter: '^# "local" is for Unix domain socket connections only'
     backup: yes
@@ -131,7 +131,6 @@
     executable: /bin/bash
   register: schema_import
   failed_when: schema_import.rc != 0
-  ignore_errors: yes  # Добавлено для идемпотентности (если схема уже импортирована)
 
 - name: Create Zabbix configuration directory
   file:

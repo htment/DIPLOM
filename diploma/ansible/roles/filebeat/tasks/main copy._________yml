@@ -1,0 +1,37 @@
+- name: Download and install Filebeat
+  apt:
+    deb: https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-7.17.9-amd64.deb
+    state: present
+
+- name: Configure Filebeat
+  template:
+    src: filebeat.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+  notify: restart filebeat
+
+- name: Enable nginx module
+  command:
+    cmd: filebeat modules enable nginx
+    creates: /etc/filebeat/modules.d/nginx.yml
+
+- name: Set up prospectors
+  copy:
+    content: |
+      - type: log
+        enabled: true
+        paths:
+          - /var/log/nginx/access.log
+        fields:
+          type: nginx-access
+        fields_under_root: true
+
+      - type: log
+        enabled: true
+        paths:
+          - /var/log/nginx/error.log
+        fields:
+          type: nginx-error
+        fields_under_root: true
+    dest: /etc/filebeat/prospectors.d/nginx.yml
+  notify: restart filebeat
+

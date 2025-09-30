@@ -1,26 +1,155 @@
-- name: Install Docker
+- name: Обновить кеш пакетов
   apt:
-    name: docker.io
-    state: present
     update_cache: yes
 
-- name: Run Elasticsearch container
-  docker_container:
-    name: elasticsearch
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
-    state: started
-    restart_policy: always
-    env:
-      discovery.type: single-node
-      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-    volumes:
-      - es_data:/usr/share/elasticsearch/data
+- name: Установить необходимые пакеты
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - python3-pip
+      - libffi-dev
+      - python3-dev
+      - gcc
+    state: present
 
-- name: Wait for Elasticsearch to start
-  wait_for:
-    port: 9200
-    delay: 10
+- name: Обновить pip до последней версии
+  pip:
+    name: pip
+    state: latest
+
+- name: Скачать containerd.io
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/dists/bionic/pool/stable/amd64/containerd.io_1.4.3-1_amd64.deb
+    dest: /tmp/containerd.io.deb
+    mode: '0644'
+
+- name: Скачать docker-ce-cli
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/dists/bionic/pool/stable/amd64/docker-ce-cli_19.03.15~3-0~ubuntu-bionic_amd64.deb
+    dest: /tmp/docker-ce-cli.deb
+    mode: '0644'
+
+- name: Скачать docker-ce
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/dists/bionic/pool/stable/amd64/docker-ce_19.03.15~3-0~ubuntu-bionic_amd64.deb
+    dest: /tmp/docker-ce.deb
+    mode: '0644'
+
+- name: Установить containerd.io
+  apt:
+    deb: /tmp/containerd.io.deb
+    state: present
+
+- name: Установить docker-ce-cli
+  apt:
+    deb: /tmp/docker-ce-cli.deb
+    state: present
+
+- name: Установить docker-ce
+  apt:
+    deb: /tmp/docker-ce.deb
+    state: present
+
+- name: Установить Docker Compose
+  pip:
+    name: docker-compose==1.29.2
+    state: present
+
+- name: Добавить пользователя в группу docker
+  user:
+    name: "{{ ansible_ssh_user }}"
+    groups: docker
+    append: yes
+
+- name: Запустить и включить Docker
+  systemd:
+    name: docker
     state: started
+    enabled: yes
+
+# - name: Создать директорию для проектных файлов
+#   file:
+#     path: /home/{{ ansible_ssh_user }}/FileBeat
+#     state: directory
+#     owner: "{{ ansible_ssh_user }}"
+#     group: "{{ ansible_ssh_user }}"
+
+# - name: Создать директорию для filebeat
+#   file:
+#     path: /home/{{ ansible_ssh_user }}/FileBeat/filebeat
+#     state: directory
+#     owner: "{{ ansible_ssh_user }}"
+#     group: "{{ ansible_ssh_user }}"
+
+- name: Создать директорию для logstash
+  file:
+    path: /home/{{ ansible_ssh_user }}/FileBeat/logstash/pipeline
+    state: directory
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+
+# - name: Копировать файл filebeat.yml
+#   copy:
+#     src: files/filebeat.yml
+#     dest: /home/{{ ansible_ssh_user }}/FileBeat/filebeat/filebeat.yml
+#     owner: "{{ ansible_ssh_user }}"
+#     group: "{{ ansible_ssh_user }}"
+#     mode: '0644'
+
+- name: Копировать файл logstash.conf
+  copy:
+    src: files/logstash.conf
+    dest: /home/{{ ansible_ssh_user }}/FileBeat/logstash/pipeline/logstash.conf
+    owner: "{{ ansible_ssh_user }}"
+    group: "{{ ansible_ssh_user }}"
+    mode: '0644'
+
+
+
+
+
+
+- name: Копировать файл docker-compose.yml
+  copy:
+    dest: /home/{{ ansible_ssh_user }}/FileBeat/docker-compose.yml
+    content: |
+      version: '3'
+      services:
+        elasticsearch:
+          image: elasticsearch:8.12.0
+          environment:
+            - discovery.type=single-node
+            - cluster.name=my_art_cluster_name
+            - ES_JAVA_OPTS=-Xms1g -Xmx1g
+          ports:
+            - "9200:9200"
+          volumes:
+            - es_data:/usr/share/elasticsearch/data
+
+        logstash:
+          image: logstash:8.12.0
+          volumes:
+            - ./logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+          ports:
+            - "5044:5044"   
+            - "5000:5000"
+            - "5140:5140/udp"
+          depends_on:
+            - elasticsearch
+
+        nginx:
+          image: nginx:latest
+          ports:
+            - "8080:80"
+          volumes:
+            - ./nginx:/var/log/nginx
+
+      volumes:
+        es_data:
+- name: Запустить docker-compose
+  community.docker.docker_compose:
+    project_src: /home/{{ ansible_ssh_user }}/FileBeat
+    state: present

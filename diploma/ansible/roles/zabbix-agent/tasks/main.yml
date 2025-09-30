@@ -1,3 +1,4 @@
+---
 - name: Install Zabbix Agent
   apt:
     name: zabbix-agent
@@ -16,8 +17,3 @@
     state: started
     enabled: yes
 
-handlers:
-  - name: restart zabbix-agent
-    service:
-      name: zabbix-agent
-      state: restarted

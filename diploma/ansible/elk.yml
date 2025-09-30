@@ -4,6 +4,8 @@
   roles:
     - elasticsearch
 
+
+
 - name: Configure Kibana
   hosts: kibana
   become: yes
