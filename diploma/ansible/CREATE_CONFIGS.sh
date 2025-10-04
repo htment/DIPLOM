@@ -40,24 +40,33 @@ cat > ./elk.yml << EOF
     elastic_int_ip: $ELASTIC_INT_IP
     kibana_ext_ip: $KIBANA_EXT_IP
     elastic_username: elastic
-    elastic_password: RAlg20I6Z+zv1BLIKVGJ
-    kibana_username: kibana
-    kibana_password: kibana
+    elastic_password: SuperSecret123!
+    kibana_username: kibana_system
+    kibana_password: KibanaPass123!
     docker_registry_username: "{{ lookup('env', 'DOCKER_REGISTRY_USERNAME') | default('your_docker_username', true) }}"
     docker_registry_password: "{{ lookup('env', 'DOCKER_REGISTRY_PASSWORD') | default('your_docker_password', true) }}"
   roles:
     - elasticsearch
 
+
+
+
+
+    
 - name: Настройка хоста Kibana
   hosts: kibana
   become: yes
   vars:
     #ansible_user: user
     elastic_int_ip: $ELASTIC_INT_IP
-    elastic_password: RAlg20I6Z+zv1BLIKVGJ
-    kibana_username: kibana # Укажите имя нового пользователя
-    kibana_password: kibana  # Укажите пароль для нового пользователя
+    elastic_password: SuperSecret123!
+    kibana_username: kibana_system
+    kibana_password: KibanaPass123!
   roles:
     - kibana
     
+
+
+
+
 EOF

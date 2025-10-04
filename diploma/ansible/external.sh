@@ -1,11 +1,34 @@
 #!/bin/bash
+# Проверяем, задана ли START_DIR, если нет — задаем
+if [ -z "$START_DIR" ]; then
+    START_DIR=$(dirname "$(dirname "$(pwd)")")
+fi
 
-set -e  # Выход при первой ошибке
+echo "START_DIR=$START_DIR"
+START_DIR_inv=$START_DIR
 
-cd /home/art/DIPLOM/diploma/terraform || {
+if [ -v "${START_DIR_inv}" ];
+then
+    echo "START_DIR_inv=$START_DIR_inv существует"
+    cd "$START_DIR/diploma/terraform" || {
     echo "Ошибка: Не удалось перейти в директорию terraform"
     exit 1
-}
+    }
+
+else
+    echo "Переменная START_DIR_inv=$START_DIR_inv не существует"
+    START_DIR_inv=$(pwd)
+    pwd
+    echo "Переход ../terraform"
+    cd "$START_DIR/diploma/terraform"
+   
+fi
+
+echo $START_DIR_inv
+
+
+
+
 
 # Проверяем, инициализирован ли terraform
 if [ ! -d ".terraform" ]; then
@@ -37,6 +60,18 @@ export KIBANA_INT_IP
 export WEB_1_INT_IP
 export WEB_2_INT_IP
 export ELASTIC_INT_IP
+
+sudo tee /etc/profile.d/terraform-vars.sh > /dev/null <<EOF
+export BASTION_EXT_IP=$BASTION_EXT_IP
+export ZABBIX_EXT_IP=$ZABBIX_EXT_IP
+export KIBANA_EXT_IP=$KIBANA_EXT_IP
+export ZABBIX_INT_IP=$ZABBIX_INT_IP
+export KIBANA_INT_IP=$KIBANA_INT_IP
+export WEB_1_INT_IP=$WEB_1_INT_IP
+export WEB_2_INT_IP=$WEB_2_INT_IP
+export ELASTIC_INT_IP=$ELASTIC_INT_IP
+EOF
+
 
 
 
@@ -84,7 +119,7 @@ EOF
 
 
 
-
+ANSIBLE_USER=user
 
 
 # Создание inventory.yml с подставленными значениями
@@ -95,17 +130,17 @@ all:
     ansible_ssh_common_args: >
       -o StrictHostKeyChecking=no
       -o UserKnownHostsFile=/dev/null
-      -J user@$BASTION_EXT_IP
+      -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@$BASTION_EXT_IP"
     
     zabbix_server_ip: $ZABBIX_INT_IP 
+    elastic_server_ip: $ELASTIC_INT_IP
 
   children:
     bastion:
       hosts:
         bastion.ru-central1.external:
           ansible_host: "$BASTION_EXT_IP"
-          ansible_ssh_common_args: ""
-          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+          ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
     webservers:
       hosts:
@@ -133,7 +168,8 @@ all:
       hosts:
         zabbix.ru-central1.internal:
           ansible_host: "$ZABBIX_INT_IP"
-          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+          
 
     kibana:
       hosts:

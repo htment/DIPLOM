@@ -60,7 +60,7 @@
 
 - name: Добавить пользователя в группу docker
   user:
-    name: "{{ ansible_ssh_user }}"
+    name: "{{ ansible_ssh_user | default('user') }}"
     groups: docker
     append: yes
 
@@ -125,6 +125,7 @@
             - discovery.type=single-node
             - cluster.name=my_art_cluster_name
             - ES_JAVA_OPTS=-Xms1g -Xmx1g
+            - ELASTIC_PASSWORD=SuperSecret123!
           ports:
             - "9200:9200"
           volumes:

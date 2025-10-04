@@ -2,6 +2,8 @@
 
 START_DIR=$(pwd)
 
+echo "export START_DIR=$START_DIR существует"
+export START_DIR=$START_DIR
 # Переход в директорию с Terraform
 cd ./diploma/terraform || { echo "Не удалось перейти в директорию Terraform"; exit 1; }
 
@@ -45,7 +47,7 @@ ansible-playbook -i inventory.yml bastion.yml
         fi
 echo "==============================================================================="
 echo "Запуск Ansible playbook ZABBIX-server"
-ansible-playbook -i inventory.yml zabbix-server.yml
+ansible-playbook -i inventory.yml zabbix-server.yml 
         # Проверка успешности выполнения Ansible playbook
         if [ $? -ne 0 ]; then
             echo "Ошибка при выполнении Ansible playbook."

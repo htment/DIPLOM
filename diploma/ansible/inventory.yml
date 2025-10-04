@@ -1,33 +1,34 @@
 all:
   vars:
+    ansible_user: user 
     ansible_ssh_common_args: >
       -o StrictHostKeyChecking=no
       -o UserKnownHostsFile=/dev/null
-      -J user@158.160.39.253
+      -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@89.169.157.39"
     
-    zabbix_server_ip: 192.168.10.22 
+    zabbix_server_ip: 192.168.10.21 
+    elastic_server_ip: 192.168.20.15
 
   children:
     bastion:
       hosts:
         bastion.ru-central1.external:
-          ansible_host: "158.160.39.253"
-          ansible_ssh_common_args: ""
-          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+          ansible_host: "89.169.157.39"
+          ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
     webservers:
       hosts:
         web-1.ru-central1.internal:
-          ansible_host: "192.168.20.31"
+          ansible_host: "192.168.20.6"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
         web-2.ru-central1.internal:
-          ansible_host: "192.168.30.4"
+          ansible_host: "192.168.30.8"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
     elastic:
       hosts:
         elastic.ru-central1.internal:
-          ansible_host: "192.168.20.5"
+          ansible_host: "192.168.20.15"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
 
@@ -35,16 +36,17 @@ all:
  #   zabbix:
  #     hosts:
  #       zabbix.ru-central1.external:
- #         ansible_host: "158.160.109.237"
+ #         ansible_host: "89.169.158.148"
        
     zabbix:
       hosts:
         zabbix.ru-central1.internal:
-          ansible_host: "192.168.10.22"
-          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+          ansible_host: "192.168.10.21"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+          
 
     kibana:
       hosts:
         kibana.ru-central1.internal:
-          ansible_host: "192.168.10.6"
+          ansible_host: "192.168.10.33"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"

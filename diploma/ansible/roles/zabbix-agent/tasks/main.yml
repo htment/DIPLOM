@@ -17,3 +17,7 @@
     state: started
     enabled: yes
 
+- name: ЖДЕМ перед restarting zabbix-agent
+  pause:
+    seconds: 30
+

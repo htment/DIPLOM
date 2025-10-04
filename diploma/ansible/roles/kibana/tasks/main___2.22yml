@@ -68,26 +68,21 @@
     state: started
     enabled: yes
 
+
 - name: Wait for Elasticsearch HTTP API
   ansible.legacy.uri:
     url: "http://{{ elastic_int_ip }}:9200"
     method: GET
+    #validate_certs: no
     timeout: 5
-    status_code: [200, 401]
+    status_code: [200, 401]  
   register: es_https_available
   until: es_https_available.status in [200, 401]
   retries: 12
   delay: 5
 
-- name: Сбросить пароль kibana_system в Elasticsearch (если существует)
-  ansible.legacy.shell:
-    cmd: >
-      curl -u elastic:{{ elastic_password }} -X PUT "http://{{ elastic_int_ip }}:9200/_security/user/kibana_system/_password"
-      -H "Content-Type: application/json"
-      -d '{"password":"{{ kibana_password }}"}'
-  ignore_errors: yes  # Поправка: добавлена задача для сброса пароля, игнорируем, если пользователь не существует
 
-- name: Создать пользователя для Kibana в Elasticsearch (если не существует)
+- name: Создать пользователя для Kibana в Elasticsearch
   ansible.legacy.shell:
     cmd: >
       curl -u elastic:{{ elastic_password }} -X POST "http://{{ elastic_int_ip }}:9200/_security/user/kibana_system"
@@ -96,8 +91,8 @@
   register: create_user_result
   changed_when: create_user_result.rc == 0
   failed_when: create_user_result.rc != 0 and "already exists" not in create_user_result.stderr
-  # Поправка: убрал ignore_errors: yes, исправил https на http
-
+  #ignore_errors: yes
+  
 - name: Создать директорию для Kibana
   file:
     path: /home/{{ ansible_user | default('user') }}/kibana
@@ -119,8 +114,6 @@
             - ELASTICSEARCH_USERNAME={{ kibana_username }}
             - ELASTICSEARCH_PASSWORD={{ kibana_password }}
             - ELASTICSEARCH_SSL_VERIFICATIONMODE=none
-            - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY={{ lookup('pipe', 'openssl rand -hex 16') }}  # Поправка: добавлено
-            - XPACK_REPORTING_ENCRYPTIONKEY={{ lookup('pipe', 'openssl rand -hex 16') }}  # Поправка: добавлено
           ports:
             - "5601:5601"
           networks:
