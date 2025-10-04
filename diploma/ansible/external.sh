@@ -91,6 +91,7 @@ EOF
 cat > ../ansible/inventory.yml << EOF
 all:
   vars:
+    ansible_user: $ANSIBLE_USER 
     ansible_ssh_common_args: >
       -o StrictHostKeyChecking=no
       -o UserKnownHostsFile=/dev/null
@@ -104,18 +105,22 @@ all:
         bastion.ru-central1.external:
           ansible_host: "$BASTION_EXT_IP"
           ansible_ssh_common_args: ""
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
     webservers:
       hosts:
         web-1.ru-central1.internal:
           ansible_host: "$WEB_1_INT_IP"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
         web-2.ru-central1.internal:
           ansible_host: "$WEB_2_INT_IP"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
     elastic:
       hosts:
         elastic.ru-central1.internal:
           ansible_host: "$ELASTIC_INT_IP"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
 
 
@@ -128,11 +133,13 @@ all:
       hosts:
         zabbix.ru-central1.internal:
           ansible_host: "$ZABBIX_INT_IP"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
     kibana:
       hosts:
         kibana.ru-central1.internal:
           ansible_host: "$KIBANA_INT_IP"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 EOF
 
 echo "Файлы vars.yml и inventory.yml созданы успешно"

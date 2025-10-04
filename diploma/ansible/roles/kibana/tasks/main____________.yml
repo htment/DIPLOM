@@ -11,6 +11,9 @@
       - curl
       - software-properties-common
       - python3-pip
+      - libffi-dev
+      - python3-dev
+      - gcc
     state: present
 
 - name: Обновить pip до последней версии
@@ -58,7 +61,7 @@
 
 - name: Добавить пользователя в группу docker
   user:
-    name: "{{ ansible_user | default('user') }}"
+    name: "{{ ansible_user }}"
     groups: docker
     append: yes
 
@@ -68,26 +71,16 @@
     state: started
     enabled: yes
 
-- name: Создать пользователя для Kibana в Elasticsearch
-  ansible.legacy.shell:
-    cmd: >
-      curl -u elastic:SuperSecret123! -k -X POST "https://192.168.20.5:9200/_security/user/kibana_system"
-      -H "Content-Type: application/json"
-      -d '{"password":"KibanaPass123!","roles":["kibana_system"]}'
-  register: create_user_result
-  changed_when: create_user_result.rc == 0
-  failed_when: create_user_result.rc != 0 and "already exists" not in create_user_result.stderr
-
 - name: Создать директорию для Kibana
   file:
-    path: /home/{{ ansible_user | default('user') }}/kibana
+    path: /home/{{ ansible_user }}/kibana
     state: directory
-    owner: "{{ ansible_user | default('user') }}"
-    group: "{{ ansible_user | default('user') }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
 
-- name: Создать файл docker-compose.yml для Kibana
+- name: Копировать файл docker-compose.yml для Kibana
   copy:
-    dest: /home/{{ ansible_user | default('user') }}/kibana/docker-compose.yml
+    dest: /home/{{ ansible_user }}/kibana/docker-compose.yml
     content: |
       version: '3'
       services:
@@ -95,22 +88,54 @@
           container_name: kibana
           image: kibana:8.12.0
           environment:
-            - ELASTICSEARCH_HOSTS==https://{{ elastic_int_ip }}:9200
-            - ELASTICSEARCH_USERNAME=kibana
-            - ELASTICSEARCH_PASSWORD=Kibana123
-            - ELASTICSEARCH_SSL_VERIFICATIONMODE=none
+            - ELASTICSEARCH_HOSTS=http://{{ elastic_int_ip }}:9200
+            - ELASTICSEARCH_USERNAME={{ kibana_username }}
+            - ELASTICSEARCH_PASSWORD={{ kibana_password }}
           ports:
             - "5601:5601"
-          networks:
-            - kibana_network
-      networks:
-        kibana_network:
-          driver: bridge
-    owner: "{{ ansible_user | default('user') }}"
-    group: "{{ ansible_user | default('user') }}"
+          depends_on:
+            - elasticsearch_wait
+        elasticsearch_wait:
+          image: busybox
+          command: sh -c "until nc -z {{ elastic_int_ip }} 9200; do echo waiting for Elasticsearch; sleep 2; done"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0644'
 
-- name: Запустить docker-compose на хосте Kibana
+- name: Запустить docker-compose для Kibana
   community.docker.docker_compose:
-    project_src: /home/{{ ansible_user | default('user') }}/kibana
+    project_src: /home/{{ ansible_user }}/kibana
     state: present
+- name: Ожидать готовности Elasticsearch (без аутентификации, для базовой проверки)
+  wait_for:
+    host: localhost
+    port: 9200
+    timeout: 60
+
+- name: Создать пользователя kibana_system в Elasticsearch
+  uri:
+    url: http://localhost:9200/_security/user/kibana_system
+    method: POST
+    user: elastic
+    password: "{{ elastic_password }}"
+    body_format: json
+    body:
+      password: "{{ kibana_password }}"
+      roles: ["kibana_system"]
+    status_code: 200, 201
+  register: create_user
+  retries: 5
+  delay: 10
+  until: create_user.status in [200, 201]
+
+- name: Проверить подключение к Elasticsearch с kibana_system
+  uri:
+    url: http://localhost:9200/_cluster/health
+    method: GET
+    user: "{{ kibana_username }}"
+    password: "{{ kibana_password }}"
+    status_code: 200
+  register: health_check
+  retries: 5
+  delay: 10
+  until: health_check.status == 200

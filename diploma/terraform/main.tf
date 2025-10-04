@@ -69,7 +69,9 @@ resource "yandex_vpc_security_group" "bastion-sg" {
     protocol       = "TCP"
     port           = 22
     v4_cidr_blocks = ["0.0.0.0/0"]
+  
   }
+
 
   egress {
     protocol       = "ANY"
@@ -211,6 +213,14 @@ resource "yandex_vpc_security_group" "elastic-sg" {
     port              = 22
     security_group_id = yandex_vpc_security_group.bastion-sg.id
   }
+# Новое правило: входящий ICMP от Kibana
+  ingress {
+    description    = "ICMP from Kibana"
+    protocol       = "ICMP"
+    from_port      = 0
+    to_port        = 0
+    v4_cidr_blocks = ["192.168.10.0/24"] # public-subnet
+  }
 
   egress {
     protocol       = "ANY"
@@ -218,6 +228,7 @@ resource "yandex_vpc_security_group" "elastic-sg" {
     to_port        = 65535
     v4_cidr_blocks = ["0.0.0.0/0"]
   }
+
 }
 
 resource "yandex_vpc_security_group" "kibana-sg" {
@@ -238,6 +249,24 @@ resource "yandex_vpc_security_group" "kibana-sg" {
     security_group_id = yandex_vpc_security_group.bastion-sg.id
   }
 
+# Новое правило: исходящий трафик к Elasticsearch (порт 9200)
+  egress {
+    description    = "To Elasticsearch"
+    protocol       = "TCP"
+    port           = 9200
+    v4_cidr_blocks = ["192.168.20.0/24"] # private-subnet
+  }
+
+  # Новое правило: исходящий ICMP к Elastic
+  egress {
+    description    = "ICMP to Elastic"
+    protocol       = "ICMP"
+    from_port      = 0
+    to_port        = 0
+    v4_cidr_blocks = ["192.168.20.0/24"] # private-subnet
+  }
+
+  # Сохраняем общее правило для остального исходящего трафика (если нужно)
   egress {
     protocol       = "ANY"
     from_port      = 0
@@ -245,6 +274,7 @@ resource "yandex_vpc_security_group" "kibana-sg" {
     v4_cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
 
 resource "yandex_compute_instance" "bastion" {
   name        = "bastion"

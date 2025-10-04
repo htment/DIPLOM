@@ -1,0 +1,27 @@
+---
+- name: Настройка основного хоста (Elasticsearch, Logstash, Nginx, FileBeat)
+  hosts: elastic
+  become: yes
+  vars:
+    elastic_int_ip: 
+    kibana_ext_ip: 
+    elastic_username: "elastic"
+    elastic_password: "secure_password_123"
+    kibana_username: "kibana_system"
+    kibana_password: "kibana_system_456"
+    docker_registry_username: "{{ lookup('env', 'DOCKER_REGISTRY_USERNAME') | default('your_docker_username', true) }}"
+    docker_registry_password: "{{ lookup('env', 'DOCKER_REGISTRY_PASSWORD') | default('your_docker_password', true) }}"
+  roles:
+    - elasticsearch
+
+- name: Настройка хоста Kibana
+  hosts: kibana
+  become: yes
+  vars:
+    elastic_int_ip: 
+    kibana_username: "kibana_system"
+    kibana_password: "kibana_system_456"
+    docker_registry_username: "{{ lookup('env', 'DOCKER_REGISTRY_USERNAME') | default('your_docker_username', true) }}"
+    docker_registry_password: "{{ lookup('env', 'DOCKER_REGISTRY_PASSWORD') | default('your_docker_password', true) }}"
+  roles:
+    - kibana

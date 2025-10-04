@@ -1,4 +1,4 @@
-- name: Stop and disable Apache2 if present
+- name: ОСТАНОВИМ APACHE если есть 
   service:
     name: apache2
     state: stopped
@@ -19,6 +19,10 @@
     group: www-data
     mode: '0644'
   notify: Restart nginx
+  register: result
+  retries: 3
+  delay: 10
+  until: result is succeeded
 
 - name: Ensure nginx is running
   service:

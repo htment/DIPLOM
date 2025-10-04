@@ -1,0 +1,6 @@
+vars:
+  ansible_user: your_username
+  elastic_int_ip: 192.168.20.5
+  elastic_password: RAlg20I6Z+zv1BLIKVGJ
+  kibana_username: kibana_user  # Укажите имя нового пользователя
+  kibana_password: your_secure_password  # Укажите пароль для нового пользователя

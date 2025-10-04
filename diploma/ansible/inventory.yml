@@ -3,42 +3,48 @@ all:
     ansible_ssh_common_args: >
       -o StrictHostKeyChecking=no
       -o UserKnownHostsFile=/dev/null
-      -J user@158.160.122.108
+      -J user@158.160.39.253
     
-    zabbix_server_ip: 192.168.10.35 
+    zabbix_server_ip: 192.168.10.22 
 
   children:
     bastion:
       hosts:
         bastion.ru-central1.external:
-          ansible_host: "158.160.122.108"
+          ansible_host: "158.160.39.253"
           ansible_ssh_common_args: ""
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
     webservers:
       hosts:
         web-1.ru-central1.internal:
           ansible_host: "192.168.20.31"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
         web-2.ru-central1.internal:
-          ansible_host: "192.168.30.8"
+          ansible_host: "192.168.30.4"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
     elastic:
       hosts:
         elastic.ru-central1.internal:
-          ansible_host: "192.168.20.24"
+          ansible_host: "192.168.20.5"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
 
 
  #   zabbix:
  #     hosts:
  #       zabbix.ru-central1.external:
- #         ansible_host: "158.160.117.251"
+ #         ansible_host: "158.160.109.237"
        
     zabbix:
       hosts:
         zabbix.ru-central1.internal:
-          ansible_host: "192.168.10.35"
+          ansible_host: "192.168.10.22"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
     kibana:
       hosts:
         kibana.ru-central1.internal:
-          ansible_host: "192.168.10.25"
+          ansible_host: "192.168.10.6"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"

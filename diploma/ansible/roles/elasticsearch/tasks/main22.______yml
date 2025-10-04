@@ -1,3 +1,4 @@
+---
 - name: Обновить кеш пакетов
   apt:
     update_cache: yes
@@ -60,7 +61,7 @@
 
 - name: Добавить пользователя в группу docker
   user:
-    name: "{{ ansible_ssh_user }}"
+    name: "{{ ansible_user }}"
     groups: docker
     append: yes
 
@@ -70,51 +71,52 @@
     state: started
     enabled: yes
 
-# - name: Создать директорию для проектных файлов
-#   file:
-#     path: /home/{{ ansible_ssh_user }}/FileBeat
-#     state: directory
-#     owner: "{{ ansible_ssh_user }}"
-#     group: "{{ ansible_ssh_user }}"
-
-# - name: Создать директорию для filebeat
-#   file:
-#     path: /home/{{ ansible_ssh_user }}/FileBeat/filebeat
-#     state: directory
-#     owner: "{{ ansible_ssh_user }}"
-#     group: "{{ ansible_ssh_user }}"
+- name: Создать директорию для FileBeat
+  file:
+    path: /home/{{ ansible_user }}/FileBeat/filebeat
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
 
 - name: Создать директорию для logstash
   file:
-    path: /home/{{ ansible_ssh_user }}/elasticsearch/logstash/pipeline
+    path: /home/{{ ansible_user }}/elasticsearch/logstash/pipeline
     state: directory
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
-
-# - name: Копировать файл filebeat.yml
-#   copy:
-#     src: files/filebeat.yml
-#     dest: /home/{{ ansible_ssh_user }}/FileBeat/filebeat/filebeat.yml
-#     owner: "{{ ansible_ssh_user }}"
-#     group: "{{ ansible_ssh_user }}"
-#     mode: '0644'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
 
 - name: Копировать файл logstash.conf
   copy:
     src: files/logstash.conf
-    dest: /home/{{ ansible_ssh_user }}/elasticsearch/logstash/pipeline/logstash.conf
-    owner: "{{ ansible_ssh_user }}"
-    group: "{{ ansible_ssh_user }}"
+    dest: /home/{{ ansible_user }}/elasticsearch/logstash/pipeline/logstash.conf
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0644'
 
-
-
-
-
+- name: Копировать файл filebeat.yml
+  copy:
+    dest: /home/{{ ansible_user }}/FileBeat/filebeat/filebeat.yml
+    content: |
+      filebeat.inputs:
+        - type: log
+          enabled: true
+          paths:
+            - /home/{{ ansible_user }}/elasticsearch/nginx/*.log
+      output.elasticsearch:
+        hosts: ["http://{{ elastic_int_ip }}:9200"]
+        username: "{{ elastic_username }}"
+        password: "{{ elastic_password }}"
+      setup.kibana:
+        host: "http://{{ kibana_ext_ip }}:5601"
+        username: "{{ kibana_username }}"
+        password: "{{ kibana_password }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
 
 - name: Копировать файл docker-compose.yml
   copy:
-    dest: /home/{{ ansible_ssh_user }}/elasticsearch/docker-compose.yml
+    dest: /home/{{ ansible_user }}/elasticsearch/docker-compose.yml
     content: |
       version: '3'
       services:
@@ -125,10 +127,14 @@
             - discovery.type=single-node
             - cluster.name=my_art_cluster_name
             - ES_JAVA_OPTS=-Xms1g -Xmx1g
+            - xpack.security.enabled=true
+            - ELASTIC_PASSWORD={{ elastic_password }}
           ports:
             - "9200:9200"
           volumes:
             - es_data:/usr/share/elasticsearch/data
+          networks:
+            - elk_network
 
         logstash:
           container_name: logstash
@@ -136,11 +142,13 @@
           volumes:
             - ./logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
           ports:
-            - "5044:5044"   
+            - "5044:5044"
             - "5000:5000"
             - "5140:5140/udp"
           depends_on:
             - elasticsearch
+          networks:
+            - elk_network
 
         nginx:
           container_name: my_nginx
@@ -149,10 +157,19 @@
             - "8080:80"
           volumes:
             - ./nginx:/var/log/nginx
+          networks:
+            - elk_network
 
       volumes:
         es_data:
+      networks:
+        elk_network:
+          driver: bridge
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
 - name: Запустить docker-compose
   community.docker.docker_compose:
-    project_src: /home/{{ ansible_ssh_user }}/elasticsearch
+    project_src: /home/{{ ansible_user }}/elasticsearch
     state: present

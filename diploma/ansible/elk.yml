@@ -1,15 +1,28 @@
-- name: Configure ELK Stack
+---
+- name: Настройка основного хоста (Elasticsearch, Logstash, Nginx, FileBeat)
   hosts: elastic
   become: yes
+  vars:
+    elastic_int_ip: 192.168.20.5
+    kibana_ext_ip: 158.160.122.46
+    elastic_username: elastic
+    elastic_password: RAlg20I6Z+zv1BLIKVGJ
+    kibana_username: kibana
+    kibana_password: kibana
+    docker_registry_username: "{{ lookup('env', 'DOCKER_REGISTRY_USERNAME') | default('your_docker_username', true) }}"
+    docker_registry_password: "{{ lookup('env', 'DOCKER_REGISTRY_PASSWORD') | default('your_docker_password', true) }}"
   roles:
     - elasticsearch
 
-
-
-- name: Configure Kibana
+- name: Настройка хоста Kibana
   hosts: kibana
   become: yes
+  vars:
+    #ansible_user: user
+    elastic_int_ip: 192.168.20.5
+    elastic_password: RAlg20I6Z+zv1BLIKVGJ
+    kibana_username: kibana # Укажите имя нового пользователя
+    kibana_password: kibana  # Укажите пароль для нового пользователя
   roles:
     - kibana
-  vars:
-    elasticsearch_host: "elastic.ru-central1.internal:9200"
+    

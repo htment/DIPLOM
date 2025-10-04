@@ -1,7 +1,9 @@
 #!/bin/bash
 
+START_DIR=$(pwd)
+
 # Переход в директорию с Terraform
-cd /home/art/DIPLOM/diploma/terraform || { echo "Не удалось перейти в директорию Terraform"; exit 1; }
+cd ./diploma/terraform || { echo "Не удалось перейти в директорию Terraform"; exit 1; }
 
 # Запуск Terraform apply
 echo "Запуск terraform apply..."
@@ -18,11 +20,13 @@ cd - || { echo "Не удалось вернуться в исходную ди�
 
 # Запуск других скриптов
 echo "Соберем адреса ВМ-ок"
-bash /home/art/DIPLOM/diploma/ansible/external.sh
-
+bash ./diploma/ansible/external.sh
+echo "==============================================================================="
+pwd
 echo "Запуск скрипта CREATE_CONFIS"
-bash /home/art/DIPLOM/diploma/ansible/CREATE_CONFIGS.sh
-
+cd diploma/ansible/
+bash "$START_DIR/diploma/ansible/CREATE_CONFIGS.sh"
+echo "==============================================================================="
 # Проверка успешности выполнения предыдущих скриптов
 if [ $? -ne 0 ]; then
     echo "Ошибка при выполнении одного из скриптов."
@@ -30,7 +34,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Запуск Ansible playbook
-cd /home/art/DIPLOM/diploma/ansible
+cd $START_DIR/diploma/ansible
 echo "==============================================================================="
 echo "Запуск Ansible playbook BASTION"
 ansible-playbook -i inventory.yml bastion.yml  
@@ -54,11 +58,12 @@ ansible-playbook -i inventory.yml zabbix-agent.yml
 
         # Проверка успешности выполнения Ansible playbook
         if [ $? -ne 0 ]; then
-            echo "Ошибка при выполнении Ansible playbook."
+            echo "Ошибка при выполнении Ansible playbook zabbix-agent.yml"
             exit 1
         fi
 echo "==============================================================================="
 echo "Запуск Ansible playbook WEB-1,2"
+echo "ansible-playbook -i inventory.yml webservers.yml"
 ansible-playbook -i inventory.yml webservers.yml 
 
         # Проверка успешности выполнения Ansible playbook
@@ -74,6 +79,11 @@ ansible-playbook -i inventory.yml elk.yml
             exit 1
         fi
 
+echo "=========================================="
 
-
+cd "$START_DIR"
+pwd
+echo "Адреса ВМ-ок"
+bash ECHO_VARS.sh
 echo "Все скрипты и playbook выполнены успешно."
+echo "=========================================="
