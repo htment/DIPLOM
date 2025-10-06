@@ -4,31 +4,31 @@ all:
     ansible_ssh_common_args: >
       -o StrictHostKeyChecking=no
       -o UserKnownHostsFile=/dev/null
-      -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@158.160.60.64"
+      -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@46.21.247.144"
     
-    zabbix_server_ip: 192.168.10.35 
-    elastic_server_ip: 192.168.20.24
+    zabbix_server_ip: 192.168.10.3 
+    elastic_server_ip: 192.168.20.11
 
   children:
     bastion:
       hosts:
         bastion.ru-central1.external:
-          ansible_host: "158.160.60.64"
+          ansible_host: "46.21.247.144"
           ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
     webservers:
       hosts:
         web-1.ru-central1.internal:
-          ansible_host: "192.168.20.25"
+          ansible_host: "192.168.20.31"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
         web-2.ru-central1.internal:
-          ansible_host: "192.168.30.18"
+          ansible_host: "192.168.30.19"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
     elastic:
       hosts:
         elastic.ru-central1.internal:
-          ansible_host: "192.168.20.24"
+          ansible_host: "192.168.20.11"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
 
@@ -36,17 +36,17 @@ all:
  #   zabbix:
  #     hosts:
  #       zabbix.ru-central1.external:
- #         ansible_host: "89.169.150.149"
+ #         ansible_host: "89.169.134.177"
        
     zabbix:
       hosts:
         zabbix.ru-central1.internal:
-          ansible_host: "192.168.10.35"
+          ansible_host: "192.168.10.3"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
           
 
     kibana:
       hosts:
         kibana.ru-central1.internal:
-          ansible_host: "192.168.10.13"
+          ansible_host: "192.168.10.8"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
