@@ -80,7 +80,7 @@
     owner: zabbix
     group: zabbix
     mode: '0644'
-  notify: Перезапустить zabbix-server
+  notify: Restart zabbix-agent
 
 - name: Настроить Nginx для Zabbix
   template:
@@ -89,14 +89,14 @@
     owner: root
     group: root
     mode: '0644'
-  notify: Перезапустить nginx
+  notify: Restart nginx
 
 - name: Создать симлинк сайта для Nginx
   file:
     src: /etc/zabbix/nginx.conf
     dest: /etc/nginx/sites-enabled/zabbix
     state: link
-  notify: Перезапустить nginx
+  notify: Restart nginx
 
 - name: Настроить веб-интерфейс Zabbix
   template:
@@ -110,13 +110,13 @@
   file:
     path: /etc/nginx/sites-enabled/default
     state: absent
-  notify: Перезапустить nginx
+  notify: Restart nginx
 
 - name: Удалить конфликтующий zabbix.conf если существует
   file:
     path: /etc/nginx/conf.d/zabbix.conf
     state: absent
-  notify: Перезапустить nginx
+  notify: Restart nginx
 
 - name: Остановить и отключить Apache2
   shell: systemctl stop apache2 && systemctl disable apache2

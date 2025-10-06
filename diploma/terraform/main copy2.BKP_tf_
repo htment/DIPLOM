@@ -8,12 +8,10 @@ terraform {
 }
 
 
-# Создаем облачную сеть
 resource "yandex_vpc_network" "diploma-network" {
   name = "diploma-network"
 }
 
-# Публичная подсеть (для bastion, zabbix, kibana)
 resource "yandex_vpc_subnet" "public-subnet" {
   name           = "public-subnet"
   zone           = "ru-central1-a"
@@ -21,7 +19,6 @@ resource "yandex_vpc_subnet" "public-subnet" {
   v4_cidr_blocks = ["192.168.10.0/24"]
 }
 
-# Приватная подсеть A (для web-1, elastic)
 resource "yandex_vpc_subnet" "private-subnet" {
   name           = "private-subnet"
   zone           = "ru-central1-a"
@@ -30,7 +27,6 @@ resource "yandex_vpc_subnet" "private-subnet" {
   route_table_id = yandex_vpc_route_table.private-rt.id
 }
 
-# Приватная подсеть B (для web-2)
 resource "yandex_vpc_subnet" "private-subnet-b" {
   name           = "private-subnet-b"
   zone           = "ru-central1-b"
@@ -39,13 +35,12 @@ resource "yandex_vpc_subnet" "private-subnet-b" {
   route_table_id = yandex_vpc_route_table.private-rt.id
 }
 
-# NAT-шлюз для выхода в интернет из приватных подсетей
+
 resource "yandex_vpc_gateway" "nat-gateway" {
   name = "nat-gateway"
   shared_egress_gateway {}
 }
 
-# Таблица маршрутизации для приватных подсетей
 resource "yandex_vpc_route_table" "private-rt" {
   name       = "private-rt"
   network_id = yandex_vpc_network.diploma-network.id
@@ -55,51 +50,30 @@ resource "yandex_vpc_route_table" "private-rt" {
   }
 }
 
-# Сервисный аккаунт для ВМ
 resource "yandex_iam_service_account" "vm-sa" {
   name = "vm-sa"
 }
 
-# Роли для сервисного аккаунта
 resource "yandex_resourcemanager_folder_iam_member" "snapshotter" {
   folder_id = var.yandex_folder_id
   role      = "editor"
   member    = "serviceAccount:${yandex_iam_service_account.vm-sa.id}"
 }
 
-# Группа безопасности для внутреннего трафика - РАЗРЕШАЕМ ВСЕ ВНУТРИ VPC
-resource "yandex_vpc_security_group" "internal-sg" {
-  name        = "internal-sg"
-  network_id  = yandex_vpc_network.diploma-network.id
-  description = "Разрешает весь трафик внутри облачной сети"
-
-  ingress {
-    description    = "Весь входящий трафик внутри VPC"
-    protocol       = "ANY"
-    v4_cidr_blocks = ["192.168.10.0/24", "192.168.20.0/24", "192.168.30.0/24"]
-  }
-
-  egress {
-    description    = "Весь исходящий трафик внутри VPC"
-    protocol       = "ANY"
-    v4_cidr_blocks = ["192.168.10.0/24", "192.168.20.0/24", "192.168.30.0/24"]
-  }
-}
-
-# Группа безопасности для bastion
 resource "yandex_vpc_security_group" "bastion-sg" {
   name        = "bastion-sg"
   network_id  = yandex_vpc_network.diploma-network.id
 
   ingress {
-    description    = "SSH из интернета"
+    description    = "SSH"
     protocol       = "TCP"
     port           = 22
     v4_cidr_blocks = ["0.0.0.0/0"]
+  
   }
 
+
   egress {
-    description    = "Весь исходящий трафик"
     protocol       = "ANY"
     from_port      = 0
     to_port        = 65535
@@ -107,27 +81,40 @@ resource "yandex_vpc_security_group" "bastion-sg" {
   }
 }
 
-# Группа безопасности для web-серверов
 resource "yandex_vpc_security_group" "web-sg" {
   name        = "web-sg"
   network_id  = yandex_vpc_network.diploma-network.id
 
   ingress {
-    description       = "HTTP от ALB"
+    description       = "HTTP from ALB"
     protocol          = "TCP"
     port              = 80
     security_group_id = yandex_vpc_security_group.alb-sg.id
   }
 
   ingress {
-    description    = "Health Checks от Yandex ALB"
+    description       = "Zabbix Agent"
+    protocol          = "TCP"
+    port              = 10050
+    security_group_id = yandex_vpc_security_group.zabbix-sg.id
+  }
+
+  ingress {
+    description       = "SSH from Bastion"
+    protocol          = "TCP"
+    port              = 22
+    security_group_id = yandex_vpc_security_group.bastion-sg.id
+  }
+
+ 
+  ingress {
+    description    = "Health Checks from Yandex ALB"
     protocol       = "TCP"
     port           = 80
-    v4_cidr_blocks = ["198.18.235.0/24", "198.18.248.0/24"]
+    v4_cidr_blocks = ["198.18.235.0/24", "198.18.248.0/24"] 
   }
 
   egress {
-    description    = "Весь исходящий трафик"
     protocol       = "ANY"
     from_port      = 0
     to_port        = 65535
@@ -135,20 +122,19 @@ resource "yandex_vpc_security_group" "web-sg" {
   }
 }
 
-# Группа безопасности для Application Load Balancer
 resource "yandex_vpc_security_group" "alb-sg" {
   name        = "alb-sg"
   network_id  = yandex_vpc_network.diploma-network.id
 
   ingress {
-    description    = "HTTP из интернета"
+    description    = "HTTP"
     protocol       = "TCP"
     port           = 80
     v4_cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    description    = "Health Checks от Yandex ALB"
+    description    = "Health Checks from Yandex ALB"
     protocol       = "TCP"
     from_port      = 30000
     to_port        = 65535
@@ -156,7 +142,6 @@ resource "yandex_vpc_security_group" "alb-sg" {
   }
 
   egress {
-    description    = "Весь исходящий трафик"
     protocol       = "ANY"
     from_port      = 0
     to_port        = 65535
@@ -164,34 +149,39 @@ resource "yandex_vpc_security_group" "alb-sg" {
   }
 }
 
-# Группа безопасности для Zabbix
 resource "yandex_vpc_security_group" "zabbix-sg" {
   name        = "zabbix-sg"
   network_id  = yandex_vpc_network.diploma-network.id
 
   ingress {
-    description    = "HTTP из интернета"
+    description    = "HTTP"
     protocol       = "TCP"
     port           = 80
     v4_cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    description    = "HTTPS из интернета"
+    description    = "HTTPS"
     protocol       = "TCP"
     port           = 443
     v4_cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    description    = "Zabbix Server порт"
+    description    = "Zabbix Server"
     protocol       = "TCP"
     port           = 10051
     v4_cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    description       = "SSH from Bastion"
+    protocol          = "TCP"
+    port              = 22
+    security_group_id = yandex_vpc_security_group.bastion-sg.id
+  }
+
   egress {
-    description    = "Весь исходящий трафик"
     protocol       = "ANY"
     from_port      = 0
     to_port        = 65535
@@ -199,34 +189,85 @@ resource "yandex_vpc_security_group" "zabbix-sg" {
   }
 }
 
-# Группа безопасности для Elasticsearch
 resource "yandex_vpc_security_group" "elastic-sg" {
   name        = "elastic-sg"
   network_id  = yandex_vpc_network.diploma-network.id
 
+  ingress {
+    description       = "Elasticsearch from Kibana and Filebeat"
+    protocol          = "TCP"
+    port              = 9200
+    security_group_id = yandex_vpc_security_group.kibana-sg.id
+  }
+
+  ingress {
+    description    = "Elasticsearch cluster"
+    protocol       = "TCP"
+    port           = 9300
+    predefined_target = "self_security_group"
+  }
+
+  ingress {
+    description       = "SSH from Bastion"
+    protocol          = "TCP"
+    port              = 22
+    security_group_id = yandex_vpc_security_group.bastion-sg.id
+  }
+# Новое правило: входящий ICMP от Kibana
+  ingress {
+    description    = "ICMP from Kibana"
+    protocol       = "ICMP"
+    from_port      = 0
+    to_port        = 0
+    v4_cidr_blocks = ["192.168.10.0/24"] # public-subnet
+  }
+
   egress {
-    description    = "Весь исходящий трафик"
     protocol       = "ANY"
     from_port      = 0
     to_port        = 65535
     v4_cidr_blocks = ["0.0.0.0/0"]
   }
+
 }
 
-# Группа безопасности для Kibana
 resource "yandex_vpc_security_group" "kibana-sg" {
   name        = "kibana-sg"
   network_id  = yandex_vpc_network.diploma-network.id
 
   ingress {
-    description    = "Kibana Web интерфейс"
+    description    = "Kibana Web"
     protocol       = "TCP"
     port           = 5601
     v4_cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    description       = "SSH from Bastion"
+    protocol          = "TCP"
+    port              = 22
+    security_group_id = yandex_vpc_security_group.bastion-sg.id
+  }
+
+# Новое правило: исходящий трафик к Elasticsearch (порт 9200)
   egress {
-    description    = "Весь исходящий трафик"
+    description    = "To Elasticsearch"
+    protocol       = "TCP"
+    port           = 9200
+    v4_cidr_blocks = ["192.168.20.0/24"] # private-subnet
+  }
+
+  # Новое правило: исходящий ICMP к Elastic
+  egress {
+    description    = "ICMP to Elastic"
+    protocol       = "ICMP"
+    from_port      = 0
+    to_port        = 0
+    v4_cidr_blocks = ["192.168.20.0/24"] # private-subnet
+  }
+
+  # Сохраняем общее правило для остального исходящего трафика (если нужно)
+  egress {
     protocol       = "ANY"
     from_port      = 0
     to_port        = 65535
@@ -234,7 +275,7 @@ resource "yandex_vpc_security_group" "kibana-sg" {
   }
 }
 
-# Bastion хост
+
 resource "yandex_compute_instance" "bastion" {
   name        = "bastion"
   hostname    = "bastion"
@@ -248,7 +289,7 @@ resource "yandex_compute_instance" "bastion" {
 
   boot_disk {
     initialize_params {
-      image_id = "fd827b91d99psvq5fjit" # Ubuntu 18.04
+      image_id = "fd827b91d99psvq5fjit"
       size     = 10
     }
   }
@@ -256,10 +297,7 @@ resource "yandex_compute_instance" "bastion" {
   network_interface {
     subnet_id = yandex_vpc_subnet.public-subnet.id
     nat       = true
-    security_group_ids = [
-      yandex_vpc_security_group.bastion-sg.id,
-      yandex_vpc_security_group.internal-sg.id # ДОБАВЛЯЕМ ВНУТРЕННЮЮ ГРУППУ
-    ]
+    security_group_ids = [yandex_vpc_security_group.bastion-sg.id]
   }
 
   metadata = {
@@ -267,12 +305,14 @@ resource "yandex_compute_instance" "bastion" {
     "serial-port-enable" = "1"
   }
 
+
+
   scheduling_policy {
     preemptible = true
   }
+  
 }
 
-# Web сервер 1
 resource "yandex_compute_instance" "web-1" {
   name        = "web-1"
   hostname    = "web-1"
@@ -294,10 +334,7 @@ resource "yandex_compute_instance" "web-1" {
   network_interface {
     subnet_id = yandex_vpc_subnet.private-subnet.id
     nat       = false
-    security_group_ids = [
-      yandex_vpc_security_group.web-sg.id,
-      yandex_vpc_security_group.internal-sg.id # ДОБАВЛЯЕМ ВНУТРЕННЮЮ ГРУППУ
-    ]
+    security_group_ids = [yandex_vpc_security_group.web-sg.id]
   }
 
   metadata = {
@@ -311,7 +348,6 @@ resource "yandex_compute_instance" "web-1" {
   }
 }
 
-# Web сервер 2
 resource "yandex_compute_instance" "web-2" {
   name        = "web-2"
   hostname    = "web-2"
@@ -333,10 +369,7 @@ resource "yandex_compute_instance" "web-2" {
   network_interface {
     subnet_id = yandex_vpc_subnet.private-subnet-b.id
     nat       = false
-    security_group_ids = [
-      yandex_vpc_security_group.web-sg.id,
-      yandex_vpc_security_group.internal-sg.id # ДОБАВЛЯЕМ ВНУТРЕННЮЮ ГРУППУ
-    ]
+    security_group_ids = [yandex_vpc_security_group.web-sg.id]
   }
 
   metadata = {
@@ -350,7 +383,6 @@ resource "yandex_compute_instance" "web-2" {
   }
 }
 
-# Zabbix сервер
 resource "yandex_compute_instance" "zabbix" {
   name        = "zabbix"
   hostname    = "zabbix"
@@ -372,10 +404,7 @@ resource "yandex_compute_instance" "zabbix" {
   network_interface {
     subnet_id = yandex_vpc_subnet.public-subnet.id
     nat       = true
-    security_group_ids = [
-      yandex_vpc_security_group.zabbix-sg.id,
-      yandex_vpc_security_group.internal-sg.id # ДОБАВЛЯЕМ ВНУТРЕННЮЮ ГРУППУ
-    ]
+    security_group_ids = [yandex_vpc_security_group.zabbix-sg.id]
   }
 
   metadata = {
@@ -388,7 +417,6 @@ resource "yandex_compute_instance" "zabbix" {
   }
 }
 
-# Elasticsearch сервер
 resource "yandex_compute_instance" "elastic" {
   name        = "elastic"
   hostname    = "elastic"
@@ -410,10 +438,7 @@ resource "yandex_compute_instance" "elastic" {
   network_interface {
     subnet_id = yandex_vpc_subnet.private-subnet.id
     nat       = false
-    security_group_ids = [
-      yandex_vpc_security_group.elastic-sg.id,
-      yandex_vpc_security_group.internal-sg.id # ДОБАВЛЯЕМ ВНУТРЕННЮЮ ГРУППУ
-    ]
+    security_group_ids = [yandex_vpc_security_group.elastic-sg.id]
   }
 
   metadata = {
@@ -427,7 +452,6 @@ resource "yandex_compute_instance" "elastic" {
   }
 }
 
-# Kibana сервер
 resource "yandex_compute_instance" "kibana" {
   name        = "kibana"
   hostname    = "kibana"
@@ -449,10 +473,7 @@ resource "yandex_compute_instance" "kibana" {
   network_interface {
     subnet_id = yandex_vpc_subnet.public-subnet.id
     nat       = true
-    security_group_ids = [
-      yandex_vpc_security_group.kibana-sg.id,
-      yandex_vpc_security_group.internal-sg.id # ДОБАВЛЯЕМ ВНУТРЕННЮЮ ГРУППУ
-    ]
+    security_group_ids = [yandex_vpc_security_group.kibana-sg.id]
   }
 
   metadata = {
@@ -465,7 +486,6 @@ resource "yandex_compute_instance" "kibana" {
   }
 }
 
-# Target Group для ALB
 resource "yandex_alb_target_group" "web-tg" {
   name = "web-tg"
   target {
@@ -478,7 +498,6 @@ resource "yandex_alb_target_group" "web-tg" {
   }
 }
 
-# Backend Group для ALB
 resource "yandex_alb_backend_group" "web-bg" {
   name = "web-bg"
   http_backend {
@@ -496,12 +515,10 @@ resource "yandex_alb_backend_group" "web-bg" {
   }
 }
 
-# HTTP роутер для ALB
 resource "yandex_alb_http_router" "web-router" {
   name = "web-router"
 }
 
-# Виртуальный хост для ALB
 resource "yandex_alb_virtual_host" "web-vh" {
   name           = "web-vh"
   http_router_id = yandex_alb_http_router.web-router.id
@@ -516,7 +533,6 @@ resource "yandex_alb_virtual_host" "web-vh" {
   }
 }
 
-# Application Load Balancer
 resource "yandex_alb_load_balancer" "web-alb" {
   name               = "web-alb"
   network_id         = yandex_vpc_network.diploma-network.id
@@ -546,7 +562,6 @@ resource "yandex_alb_load_balancer" "web-alb" {
   }
 }
 
-# Расписание снапшотов
 resource "yandex_compute_snapshot_schedule" "daily-snapshots" {
   name = "daily-snapshots"
 

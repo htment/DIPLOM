@@ -4,31 +4,31 @@ all:
     ansible_ssh_common_args: >
       -o StrictHostKeyChecking=no
       -o UserKnownHostsFile=/dev/null
-      -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@84.201.174.192"
+      -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@158.160.60.64"
     
-    zabbix_server_ip: 192.168.10.7 
-    elastic_server_ip: 192.168.20.8
+    zabbix_server_ip: 192.168.10.35 
+    elastic_server_ip: 192.168.20.24
 
   children:
     bastion:
       hosts:
         bastion.ru-central1.external:
-          ansible_host: "84.201.174.192"
+          ansible_host: "158.160.60.64"
           ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
     webservers:
       hosts:
         web-1.ru-central1.internal:
-          ansible_host: "192.168.20.6"
+          ansible_host: "192.168.20.25"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
         web-2.ru-central1.internal:
-          ansible_host: "192.168.30.24"
+          ansible_host: "192.168.30.18"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
     elastic:
       hosts:
         elastic.ru-central1.internal:
-          ansible_host: "192.168.20.8"
+          ansible_host: "192.168.20.24"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 
 
@@ -36,17 +36,17 @@ all:
  #   zabbix:
  #     hosts:
  #       zabbix.ru-central1.external:
- #         ansible_host: "46.21.246.219"
+ #         ansible_host: "89.169.150.149"
        
     zabbix:
       hosts:
         zabbix.ru-central1.internal:
-          ansible_host: "192.168.10.7"
+          ansible_host: "192.168.10.35"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
           
 
     kibana:
       hosts:
         kibana.ru-central1.internal:
-          ansible_host: "192.168.10.32"
+          ansible_host: "192.168.10.13"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"

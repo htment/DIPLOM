@@ -204,6 +204,30 @@ terraform -version
 ```
 ![alt text](image.png)
 ---------------------------------------------------------------
+Создаим файл .terraformrc в папке пользователя
+
+```
+provider_installation {
+  network_mirror {
+    url = "https://terraform-mirror.yandexcloud.net/"
+    include = ["registry.terraform.io/*/*"]
+  }
+  direct {
+    exclude = ["registry.terraform.io/*/*"]
+  }
+}
+
+```
+
+---------------------------------------------------------------
+
+
+
+скачаем .authorized_key.json
+![alt text](image-14.png)
+
+
+---------------------------------------------------------------
 
 Создаим файл terraform.tfvars с содержимым:
 
