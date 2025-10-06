@@ -1,260 +1,147 @@
 ---
-- name: Update package cache
-  apt:
-    update_cache: yes
-    cache_valid_time: 3600
+- name: Скачать пакет релиза Zabbix
+  get_url:
+    url: https://repo.zabbix.com/zabbix/6.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.0-4+ubuntu18.04_all.deb
+    dest: /tmp/zabbix-release_6.0-4+ubuntu18.04_all.deb
+    mode: '0644'
 
-- name: Install required packages for repositories
-  apt:
-    name:
-      - software-properties-common
-      - curl
-      - gnupg
-      - apt-transport-https
-    state: present
+- name: Установить пакет релиза Zabbix
+  shell: dpkg -i /tmp/zabbix-release_6.0-4+ubuntu18.04_all.deb
+  ignore_errors: yes
 
-- name: Add Zabbix 5.0 repository key
-  apt_key:
-    url: "https://repo.zabbix.com/zabbix-official-repo.key"
-    state: present
-
-- name: Add Zabbix 5.0 repository
-  apt_repository:
-    repo: "deb https://repo.zabbix.com/zabbix/5.0/ubuntu bionic main"
-    state: present
-    filename: zabbix
-
-- name: Update package cache after adding repositories
-  apt:
-    update_cache: yes
-
-- name: Install PostgreSQL server and client
-  apt:
-    name:
-      - postgresql
-      - postgresql-client
-      - python3-psycopg2
-    state: present
-
-- name: Ensure PostgreSQL is running
-  systemd:
-    name: postgresql
-    state: started
-    enabled: yes
-
-- name: Create PostgreSQL user for Zabbix
-  become_user: postgres
-  postgresql_user:
-    name: "{{ zabbix_db_user }}"
-    password: "{{ zabbix_db_password }}"
-    role_attr_flags: "CREATEDB,LOGIN"
-    state: present
-
-- name: Create Zabbix database
-  become_user: postgres
-  postgresql_db:
-    name: "{{ zabbix_db_name }}"
-    owner: "{{ zabbix_db_user }}"
-    encoding: UTF8
-    state: present
-
-- name: Configure pg_hba.conf for md5 authentication
+- name: Убедиться что репозиторий Zabbix 6.0 настроен
   lineinfile:
-    path: /etc/postgresql/10/main/pg_hba.conf  # Для Ubuntu 18.04 (PostgreSQL 10); если версия другая, скорректируйте
-    line: 'local   all   {{ zabbix_db_user }}   md5'
-    insertafter: '^# "local" is for Unix domain socket connections only'
+    path: /etc/apt/sources.list.d/zabbix.list
+    regexp: '^deb https://repo\.zabbix\.com/zabbix/'
+    line: 'deb https://repo.zabbix.com/zabbix/6.0/ubuntu bionic main'
     backup: yes
-  notify: restart postgresql
 
-- name: Install Apache
-  apt:
-    name: apache2
-    state: present
+- name: Обновить кэш apt
+  shell: apt update -y
 
-- name: Install PHP 7.2 and extensions for Zabbix 5.0
-  apt:
-    name:
-      - php7.2
-      - php7.2-pgsql
-      - php7.2-gd
-      - php7.2-xml
-      - php7.2-bcmath
-      - php7.2-mbstring
-      - php7.2-ldap
-      - php7.2-curl
-    state: present
+- name: Установить необходимые пакеты включая zabbix-sql-scripts
+  shell: apt install -y postgresql zabbix-server-pgsql zabbix-frontend-php zabbix-nginx-conf zabbix-agent zabbix-sql-scripts php7.2-pgsql php7.2-mbstring php7.2-gd php7.2-xml php7.2-bcmath
 
-- name: Install Zabbix Server 5.0
-  apt:
-    name: zabbix-server-pgsql=1:5.0*
-    state: present
-
-- name: Install Zabbix Frontend 5.0
-  apt:
-    name: zabbix-frontend-php=1:5.0*
-    state: present
-
-- name: Enable Apache modules
-  command: a2enmod {{ item }}
-  with_items:
-    - rewrite
-    - ssl
-    - headers
-  notify: restart apache2
-
-- name: Create Zabbix log directory
-  file:
-    path: /var/log/zabbix
-    state: directory
-    owner: zabbix
-    group: zabbix
-    mode: 0755
-
-- name: Create Zabbix run directory
+- name: Создать PID директорию для Zabbix
   file:
     path: /run/zabbix
     state: directory
     owner: zabbix
     group: zabbix
-    mode: 0755
+    mode: '0755'
 
-- name: Remove existing PID file
+- name: Создать директорию логов для Zabbix
   file:
-    path: /run/zabbix/zabbix_server.pid
-    state: absent
+    path: /var/log/zabbix
+    state: directory
+    owner: zabbix
+    group: zabbix
+    mode: '0755'
 
-- name: Import Zabbix schema
-  become_user: postgres
-  shell: |
-    zcat /usr/share/doc/zabbix-server-pgsql/create.sql.gz | PGPASSWORD="{{ zabbix_db_password }}" psql -h localhost -U "{{ zabbix_db_user }}" -d "{{ zabbix_db_name }}"
+- name: Убедиться что PostgreSQL запущен
+  systemd:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Проверить существует ли база данных Zabbix
+  shell: sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -w "{{ zabbix_db_name }}" | wc -l
+  register: db_exists
+  changed_when: false
+
+- name: Создать базу данных PostgreSQL для Zabbix
+  shell: sudo -u postgres createdb "{{ zabbix_db_name }}"
+  when: db_exists.stdout == "0"
+  ignore_errors: yes
+
+- name: Проверить существует ли пользователь Zabbix
+  shell: sudo -u postgres psql -t -c "SELECT COUNT(*) FROM pg_roles WHERE rolname='{{ zabbix_db_user }}';"
+  register: user_exists
+  changed_when: false
+
+- name: Создать пользователя PostgreSQL для Zabbix
+  shell: sudo -u postgres psql -c "CREATE USER {{ zabbix_db_user }} WITH PASSWORD '{{ zabbix_db_password }}'"
+  when: user_exists.stdout.strip() == "0"
+  ignore_errors: yes
+
+- name: Выдать привилегии на базу данных пользователю Zabbix
+  shell: sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE {{ zabbix_db_name }} TO {{ zabbix_db_user }};"
+  ignore_errors: yes
+
+- name: Импортировать схему базы данных Zabbix (Zabbix 6.0)
+  shell: zcat /usr/share/zabbix-sql-scripts/postgresql/server.sql.gz | sudo -u zabbix psql -d zabbix
   args:
     executable: /bin/bash
-  register: schema_import
-  failed_when: schema_import.rc != 0
-  ignore_errors: yes  # Добавлено для идемпотентности (если схема уже импортирована)
 
-- name: Create Zabbix configuration directory
-  file:
-    path: /etc/zabbix
-    state: directory
-    mode: 0755
-
-- name: Configure Zabbix Server
+- name: Настроить Zabbix сервер
   template:
     src: zabbix_server.conf.j2
     dest: /etc/zabbix/zabbix_server.conf
-    owner: root
+    owner: zabbix
     group: zabbix
-    mode: 0640
-  notify: restart zabbix-server
+    mode: '0644'
+  notify: Перезапустить zabbix-server
 
-- name: Create PHP configuration for Zabbix
-  copy:
-    content: |
-      max_execution_time=300
-      memory_limit=128M
-      post_max_size=16M
-      upload_max_filesize=2M
-      max_input_time=300
-      max_input_vars=10000
-      date.timezone=Europe/Moscow
-    dest: /etc/php/7.2/apache2/conf.d/99-zabbix.ini
-  notify: restart apache2
+- name: Настроить Nginx для Zabbix
+  template:
+    src: nginx.conf.j2
+    dest: /etc/zabbix/nginx.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Перезапустить nginx
 
-- name: Configure Apache for Zabbix
-  copy:
-    content: |
-      Alias /zabbix /usr/share/zabbix
-      <Directory "/usr/share/zabbix">
-          Options FollowSymLinks
-          AllowOverride None
-          Require all granted
-          <IfModule mod_php7.c>
-              php_value max_execution_time 300
-              php_value memory_limit 128M
-              php_value post_max_size 16M
-              php_value upload_max_filesize 2M
-              php_value max_input_time 300
-              php_value max_input_vars 10000
-              php_value date.timezone Europe/Moscow
-          </IfModule>
-      </Directory>
-      <Directory "/usr/share/zabbix/conf">
-          Require all denied
-      </Directory>
-      <Directory "/usr/share/zabbix/app">
-          Require all denied
-      </Directory>
-      <Directory "/usr/share/zabbix/include">
-          Require all denied
-      </Directory>
-      <Directory "/usr/share/zabbix/local">
-          Require all denied
-      </Directory>
-    dest: /etc/apache2/conf-available/zabbix.conf
-  notify: restart apache2
+- name: Создать симлинк сайта для Nginx
+  file:
+    src: /etc/zabbix/nginx.conf
+    dest: /etc/nginx/sites-enabled/zabbix
+    state: link
+  notify: Перезапустить nginx
 
-- name: Enable Zabbix configuration in Apache
-  command: a2enconf zabbix
-  notify: restart apache2
+- name: Настроить веб-интерфейс Zabbix
+  template:
+    src: zabbix.conf.php.j2
+    dest: /usr/share/zabbix/conf/zabbix.conf.php
+    owner: www-data
+    group: www-data
+    mode: '0644'
 
-- name: Ensure Apache is running
-  service:
-    name: apache2
-    state: started
-    enabled: yes
+- name: Удалить сайт по умолчанию Nginx
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Перезапустить nginx
 
-- name: Fix systemd service file for Zabbix
-  copy:
-    content: |
-      [Unit]
-      Description=Zabbix Server
-      After=network.target postgresql.service
+- name: Удалить конфликтующий zabbix.conf если существует
+  file:
+    path: /etc/nginx/conf.d/zabbix.conf
+    state: absent
+  notify: Перезапустить nginx
 
-      [Service]
-      Environment="CONFFILE=/etc/zabbix/zabbix_server.conf"
-      EnvironmentFile=-/etc/default/zabbix-server
-      Type=forking
-      Restart=on-failure
-      PIDFile=/run/zabbix/zabbix_server.pid
-      KillMode=control-group
-      ExecStart=/usr/sbin/zabbix_server -c $CONFFILE
-      ExecStop=/bin/kill -SIGTERM $MAINPID
-      RestartSec=10s
-      TimeoutSec=300
-
-      [Install]
-      WantedBy=multi-user.target
-    dest: /etc/systemd/system/zabbix-server.service
-  notify: reload systemd
-
-- name: Reload systemd daemon
-  command: systemctl daemon-reload
-  when: ansible_service_mgr == "systemd"
-
-- name: Ensure Zabbix Server is running
-  service:
-    name: zabbix-server
-    state: started
-    enabled: yes
-  register: zabbix_service
+- name: Остановить и отключить Apache2
+  shell: systemctl stop apache2 && systemctl disable apache2
   ignore_errors: yes
 
-- name: Debug Zabbix service status
-  debug:
-    msg: "{{ zabbix_service }}"
-  when: zabbix_service.failed
-
-- name: Wait for Zabbix Server to start
-  wait_for:
-    port: 10051
-    host: "127.0.0.1"
-    timeout: 60
-    delay: 5
-  when: not zabbix_service.failed
-
-- name: Check Zabbix Server status
+- name: Включить и запустить Zabbix сервер
   systemd:
     name: zabbix-server
+    enabled: yes
     state: started
-  when: not zabbix_service.failed
+
+- name: Включить и запустить PHP-FPM
+  systemd:
+    name: php7.2-fpm
+    enabled: yes
+    state: started
+
+- name: Включить и запустить Nginx
+  systemd:
+    name: nginx
+    enabled: yes
+    state: started
+
+- name: Включить и запустить Zabbix агент
+  systemd:
+    name: zabbix-agent
+    enabled: yes
+    state: started

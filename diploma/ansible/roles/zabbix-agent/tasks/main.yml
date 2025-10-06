@@ -5,6 +5,38 @@
     state: present
     update_cache: yes
 
+- name: СОЗдаем log directory
+  file:
+    path: /var/log/zabbix
+    state: directory
+    owner: zabbix
+    group: zabbix
+    mode: 0755
+
+- name: СОЗдаем Zabbix log file
+  file:
+    path: /var/log/zabbix/zabbix_agentd.log
+    state: touch
+    owner: zabbix
+    group: zabbix
+    mode: 0644
+
+- name: Create Zabbix Agent config directory
+  file:
+    path: /etc/zabbix/zabbix_agentd.conf.d
+    state: directory
+    owner: zabbix
+    group: zabbix
+    mode: 0755
+
+- name: Stop Zabbix Agent if running (before config apply)
+  service:
+    name: zabbix-agent
+    state: stopped
+  ignore_errors: yes
+  changed_when: false
+
+
 - name: Configure Zabbix Agent
   template:
     src: zabbix_agentd.conf.j2
@@ -16,8 +48,22 @@
     name: zabbix-agent
     state: started
     enabled: yes
+  failed_when: false
 
-- name: ЖДЕМ перед restarting zabbix-agent
-  pause:
-    seconds: 30
+- name: Check Zabbix Agent status and logs
+  block:
+    - name: Check Zabbix Agent status with retry
+      command: systemctl is-active zabbix-agent
+      register: zabbix_agent_status
+      until: zabbix_agent_status.rc == 0 and zabbix_agent_status.stdout == "active"
+      retries: 3
+      delay: 5
+      changed_when: false
 
+    - name: Show Zabbix Agent status
+      debug:
+        msg: "Zabbix Agent status: {{ zabbix_agent_status.stdout }}"
+
+# - name: ЖДЕМ перед restarting zabbix-agent
+#   pause:
+#     seconds: 60

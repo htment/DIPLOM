@@ -11,8 +11,100 @@ echo "KIBANA_INT_IP: $KIBANA_INT_IP"
 echo "WEB_1_INT_IP: $WEB_1_INT_IP"
 echo "WEB_2_INT_IP: $WEB_2_INT_IP"
 echo "ELASTIC_INT_IP: $ELASTIC_INT_IP"
+echo "ALB_EXT_IP: $ALB_EXT_IP"
+
+
+
+
+
+
+# Создание vars.yml
+cat > ../ansible/vars.yml << EOF
+---
+BASTION_EXT_IP: $BASTION_EXT_IP
+ZABBIX_EXT_IP: $ZABBIX_EXT_IP
+KIBANA_EXT_IP: $KIBANA_EXT_IP
+ALB_EXT_IP: $ALB_EXT_IP
+
+ZABBIX_INT_IP: $ZABBIX_INT_IP
+KIBANA_INT_IP: $KIBANA_INT_IP
+WEB_1_INT_IP: $WEB_1_INT_IP
+WEB_2_INT_IP: $WEB_2_INT_IP
+ELASTIC_INT_IP: $ELASTIC_INT_IP
+EOF
+echo "==============================================================================="
+echo "vars.yml создан"
+
+ANSIBLE_USER=user
+
 
 # Создание inventory.yml с подставленными значениями
+cat > ../ansible/inventory.yml << EOF
+all:
+  vars:
+    ansible_user: $ANSIBLE_USER 
+    ansible_ssh_common_args: >
+      -o StrictHostKeyChecking=no
+      -o UserKnownHostsFile=/dev/null
+      -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@$BASTION_EXT_IP"
+    
+    zabbix_server_ip: $ZABBIX_INT_IP 
+    elastic_server_ip: $ELASTIC_INT_IP
+
+  children:
+    bastion:
+      hosts:
+        bastion.ru-central1.external:
+          ansible_host: "$BASTION_EXT_IP"
+          ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+    webservers:
+      hosts:
+        web-1.ru-central1.internal:
+          ansible_host: "$WEB_1_INT_IP"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+        web-2.ru-central1.internal:
+          ansible_host: "$WEB_2_INT_IP"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+
+    elastic:
+      hosts:
+        elastic.ru-central1.internal:
+          ansible_host: "$ELASTIC_INT_IP"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+
+
+
+ #   zabbix:
+ #     hosts:
+ #       zabbix.ru-central1.external:
+ #         ansible_host: "$ZABBIX_EXT_IP"
+       
+    zabbix:
+      hosts:
+        zabbix.ru-central1.internal:
+          ansible_host: "$ZABBIX_INT_IP"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+          
+
+    kibana:
+      hosts:
+        kibana.ru-central1.internal:
+          ansible_host: "$KIBANA_INT_IP"
+          ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+EOF
+echo "==============================================================================="
+echo " inventory.yml создан успешно"
+
+
+
+
+
+
+
+
+# Создание yml с подставленными значениями
+echo "==============================================================================="
 echo "создаю filebeat.yml"
 mkdir -p ./roles/filebeat/files
 
@@ -30,6 +122,7 @@ EOF
 
 
 # Создание inventory.yml с подставленными значениями
+echo "==============================================================================="
 echo "создаю ./elk.yml"
 cat > ./elk.yml << EOF
 ---
@@ -48,10 +141,6 @@ cat > ./elk.yml << EOF
   roles:
     - elasticsearch
 
-
-
-
-
     
 - name: Настройка хоста Kibana
   hosts: kibana
@@ -65,8 +154,26 @@ cat > ./elk.yml << EOF
   roles:
     - kibana
     
+EOF
 
 
+# Создание inventory.yml с подставленными значениями
+echo "==============================================================================="
 
+echo "создаю ./zabbix-agent.yml"
+cat > ./zabbix-agent.yml << EOF
+
+---
+- name: Configure Zabbix Server
+  hosts: all
+  become: yes
+  vars:
+    Server: $ZABBIX_INT_IP
+    ServerActive: $ZABBIX_INT_IP
+  
+
+
+  roles:
+    - zabbix-agent
 
 EOF

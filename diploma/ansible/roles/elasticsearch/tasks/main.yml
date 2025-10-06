@@ -157,3 +157,18 @@
   community.docker.docker_compose:
     project_src: /home/{{ ansible_ssh_user }}/elasticsearch
     state: present
+
+- name: Удалить контейнер elasticsearch принудительно
+  command: docker rm -f elasticsearch
+  ignore_errors: yes
+  changed_when: false
+
+- name: Запустить docker-compose в detached режиме
+  community.docker.docker_compose:
+    project_src: /home/{{ ansible_ssh_user }}/elasticsearch
+    state: present
+    
+- name: Показать первые 5 строк логов elasticsearch
+  command: docker logs elasticsearch --tail 5
+  register: elasticsearch_logs
+  changed_when: false

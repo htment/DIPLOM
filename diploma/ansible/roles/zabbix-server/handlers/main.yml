@@ -1,18 +1,28 @@
 ---
-- name: reload systemd
+- name: Reload systemd
   command: systemctl daemon-reload
 
-- name: restart zabbix-server
-  service:
+- name: Restart zabbix-server
+  systemd:
     name: zabbix-server
     state: restarted
 
-- name: restart postgresql
-  service:
+- name: Restart postgresql
+  systemd:
     name: postgresql
     state: restarted
 
-- name: restart apache2
+- name: disable apache2
   service:
     name: apache2
+    state: disable
+
+- name: Restart nginx
+  systemd:
+    name: nginx
+    state: restarted
+
+- name: Restart zabbix-agent
+  systemd:
+    name: zabbix-agent
     state: restarted

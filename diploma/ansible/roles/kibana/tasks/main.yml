@@ -76,8 +76,8 @@
     status_code: [200, 401]
   register: es_https_available
   until: es_https_available.status in [200, 401]
-  retries: 12
-  delay: 5
+  retries: 20
+  delay: 10
 
 - name: Сбросить пароль kibana_system в Elasticsearch (если существует)
   ansible.legacy.shell:

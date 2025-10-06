@@ -3,8 +3,8 @@
   hosts: elastic
   become: yes
   vars:
-    elastic_int_ip: 192.168.20.15
-    kibana_ext_ip: 158.160.100.130
+    elastic_int_ip: 192.168.20.8
+    kibana_ext_ip: 51.250.78.20
     elastic_username: elastic
     elastic_password: SuperSecret123!
     kibana_username: kibana_system
@@ -14,24 +14,16 @@
   roles:
     - elasticsearch
 
-
-
-
-
     
 - name: Настройка хоста Kibana
   hosts: kibana
   become: yes
   vars:
     #ansible_user: user
-    elastic_int_ip: 192.168.20.15
+    elastic_int_ip: 192.168.20.8
     elastic_password: SuperSecret123!
     kibana_username: kibana_system
     kibana_password: KibanaPass123!
   roles:
     - kibana
     
-
-
-
-

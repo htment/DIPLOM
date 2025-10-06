@@ -34,3 +34,4 @@ output "web_2_internal_ip" {
 output "elastic_internal_ip" {
   value = yandex_compute_instance.elastic.network_interface.0.ip_address
 }
+

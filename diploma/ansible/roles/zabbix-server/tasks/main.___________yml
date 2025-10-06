@@ -1,0 +1,260 @@
+---
+- name: Update package cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install required packages for repositories
+  apt:
+    name:
+      - software-properties-common
+      - curl
+      - gnupg
+      - apt-transport-https
+    state: present
+
+- name: Add Zabbix 5.0 repository key
+  apt_key:
+    url: "https://repo.zabbix.com/zabbix-official-repo.key"
+    state: present
+
+- name: Add Zabbix 5.0 repository
+  apt_repository:
+    repo: "deb https://repo.zabbix.com/zabbix/5.0/ubuntu bionic main"
+    state: present
+    filename: zabbix
+
+- name: Update package cache after adding repositories
+  apt:
+    update_cache: yes
+
+- name: Install PostgreSQL server and client
+  apt:
+    name:
+      - postgresql
+      - postgresql-client
+      - python3-psycopg2
+    state: present
+
+- name: Ensure PostgreSQL is running
+  systemd:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Create PostgreSQL user for Zabbix
+  become_user: postgres
+  postgresql_user:
+    name: "{{ zabbix_db_user }}"
+    password: "{{ zabbix_db_password }}"
+    role_attr_flags: "CREATEDB,LOGIN"
+    state: present
+
+- name: Create Zabbix database
+  become_user: postgres
+  postgresql_db:
+    name: "{{ zabbix_db_name }}"
+    owner: "{{ zabbix_db_user }}"
+    encoding: UTF8
+    state: present
+
+- name: Configure pg_hba.conf for md5 authentication
+  lineinfile:
+    path: /etc/postgresql/10/main/pg_hba.conf  # Для Ubuntu 18.04 (PostgreSQL 10); если версия другая, скорректируйте
+    line: 'local   all   {{ zabbix_db_user }}   md5'
+    insertafter: '^# "local" is for Unix domain socket connections only'
+    backup: yes
+  notify: restart postgresql
+
+- name: Install Apache
+  apt:
+    name: apache2
+    state: present
+
+- name: Install PHP 7.2 and extensions for Zabbix 5.0
+  apt:
+    name:
+      - php7.2
+      - php7.2-pgsql
+      - php7.2-gd
+      - php7.2-xml
+      - php7.2-bcmath
+      - php7.2-mbstring
+      - php7.2-ldap
+      - php7.2-curl
+    state: present
+
+- name: Install Zabbix Server 5.0
+  apt:
+    name: zabbix-server-pgsql=1:5.0*
+    state: present
+
+- name: Install Zabbix Frontend 5.0
+  apt:
+    name: zabbix-frontend-php=1:5.0*
+    state: present
+
+- name: Enable Apache modules
+  command: a2enmod {{ item }}
+  with_items:
+    - rewrite
+    - ssl
+    - headers
+  notify: restart apache2
+
+- name: Create Zabbix log directory
+  file:
+    path: /var/log/zabbix
+    state: directory
+    owner: zabbix
+    group: zabbix
+    mode: 0755
+
+- name: Create Zabbix run directory
+  file:
+    path: /run/zabbix
+    state: directory
+    owner: zabbix
+    group: zabbix
+    mode: 0755
+
+- name: Remove existing PID file
+  file:
+    path: /run/zabbix/zabbix_server.pid
+    state: absent
+
+- name: Import Zabbix schema
+  become_user: postgres
+  shell: |
+    zcat /usr/share/doc/zabbix-server-pgsql/create.sql.gz | PGPASSWORD="{{ zabbix_db_password }}" psql -h localhost -U "{{ zabbix_db_user }}" -d "{{ zabbix_db_name }}"
+  args:
+    executable: /bin/bash
+  register: schema_import
+  failed_when: schema_import.rc != 0
+  ignore_errors: yes  # Добавлено для идемпотентности (если схема уже импортирована)
+
+- name: Create Zabbix configuration directory
+  file:
+    path: /etc/zabbix
+    state: directory
+    mode: 0755
+
+- name: Configure Zabbix Server
+  template:
+    src: zabbix_server.conf.j2
+    dest: /etc/zabbix/zabbix_server.conf
+    owner: root
+    group: zabbix
+    mode: 0640
+  notify: restart zabbix-server
+
+- name: Create PHP configuration for Zabbix
+  copy:
+    content: |
+      max_execution_time=300
+      memory_limit=128M
+      post_max_size=16M
+      upload_max_filesize=2M
+      max_input_time=300
+      max_input_vars=10000
+      date.timezone=Europe/Moscow
+    dest: /etc/php/7.2/apache2/conf.d/99-zabbix.ini
+  notify: restart apache2
+
+- name: Configure Apache for Zabbix
+  copy:
+    content: |
+      Alias /zabbix /usr/share/zabbix
+      <Directory "/usr/share/zabbix">
+          Options FollowSymLinks
+          AllowOverride None
+          Require all granted
+          <IfModule mod_php7.c>
+              php_value max_execution_time 300
+              php_value memory_limit 128M
+              php_value post_max_size 16M
+              php_value upload_max_filesize 2M
+              php_value max_input_time 300
+              php_value max_input_vars 10000
+              php_value date.timezone Europe/Moscow
+          </IfModule>
+      </Directory>
+      <Directory "/usr/share/zabbix/conf">
+          Require all denied
+      </Directory>
+      <Directory "/usr/share/zabbix/app">
+          Require all denied
+      </Directory>
+      <Directory "/usr/share/zabbix/include">
+          Require all denied
+      </Directory>
+      <Directory "/usr/share/zabbix/local">
+          Require all denied
+      </Directory>
+    dest: /etc/apache2/conf-available/zabbix.conf
+  notify: restart apache2
+
+- name: Enable Zabbix configuration in Apache
+  command: a2enconf zabbix
+  notify: restart apache2
+
+- name: Ensure Apache is running
+  service:
+    name: apache2
+    state: started
+    enabled: yes
+
+- name: Fix systemd service file for Zabbix
+  copy:
+    content: |
+      [Unit]
+      Description=Zabbix Server
+      After=network.target postgresql.service
+
+      [Service]
+      Environment="CONFFILE=/etc/zabbix/zabbix_server.conf"
+      EnvironmentFile=-/etc/default/zabbix-server
+      Type=forking
+      Restart=on-failure
+      PIDFile=/run/zabbix/zabbix_server.pid
+      KillMode=control-group
+      ExecStart=/usr/sbin/zabbix_server -c $CONFFILE
+      ExecStop=/bin/kill -SIGTERM $MAINPID
+      RestartSec=10s
+      TimeoutSec=300
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/zabbix-server.service
+  notify: reload systemd
+
+- name: Reload systemd daemon
+  command: systemctl daemon-reload
+  when: ansible_service_mgr == "systemd"
+
+- name: Ensure Zabbix Server is running
+  service:
+    name: zabbix-server
+    state: started
+    enabled: yes
+  register: zabbix_service
+  ignore_errors: yes
+
+- name: Debug Zabbix service status
+  debug:
+    msg: "{{ zabbix_service }}"
+  when: zabbix_service.failed
+
+- name: Wait for Zabbix Server to start
+  wait_for:
+    port: 10051
+    host: "127.0.0.1"
+    timeout: 60
+    delay: 5
+  when: not zabbix_service.failed
+
+- name: Check Zabbix Server status
+  systemd:
+    name: zabbix-server
+    state: started
+  when: not zabbix_service.failed

@@ -1,0 +1,18 @@
+---
+- name: reload systemd
+  command: systemctl daemon-reload
+
+- name: restart zabbix-server
+  service:
+    name: zabbix-server
+    state: restarted
+
+- name: restart postgresql
+  service:
+    name: postgresql
+    state: restarted
+
+- name: restart apache2
+  service:
+    name: apache2
+    state: restarted
