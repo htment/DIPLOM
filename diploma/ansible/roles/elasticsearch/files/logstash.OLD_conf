@@ -1,0 +1,26 @@
+#### В этом проекте logstashВ КОНТЕЙНЕРЕ
+
+input {
+  beats {
+    port => 5044
+  }
+}
+
+filter {
+  # ваши фильтры (если есть)
+}
+
+output {
+  elasticsearch {
+    hosts => ["http://elasticsearch:9200"]
+    index => "filebeatt-%{+YYYY.MM.dd}"
+
+    #user => "elastic"  
+    #password => "SuperSecret123!"  
+    # user и password больше не нужны, если security отключен
+  }
+  stdout { 
+    codec => rubydebug 
+  }
+}
+

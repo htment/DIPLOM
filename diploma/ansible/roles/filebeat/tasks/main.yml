@@ -153,17 +153,18 @@
           user: root
           volumes:
             - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-            - ./nginx:/var/log/nginx:ro
+            - /var/log/nginx:/var/log/nginx:ro
+            #- ./nginx:/var/log/nginx:ro
         #  depends_on:
         #    - elasticsearch
         #    - logstash
 
-        nginx:
-          image: nginx:latest
-          ports:
-            - "8080:80"
-          volumes:
-            - ./nginx:/var/log/nginx
+        #nginx:
+        #  image: nginx:latest
+        #  ports:
+        #    - "8080:80"
+        #  volumes:
+        #    - ./nginx:/var/log/nginx
 
       volumes:
         es_data:
