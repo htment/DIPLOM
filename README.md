@@ -5,7 +5,12 @@
 Эта схема показывает основные компоненты системы и их взаимодействие.
 https://github.com/htment/DIPLOM/tree/main/diploma
 ![alt text](image.png)
-# 2. 
+# 2. Развррачиваем инфраструктуру
+Описание настройки 
+https://github.com/htment/DIPLOM/blob/main/diploma/README.md
+
+# 3.  Тестирование сервисов
+
 
 
 sudo docker exec -it elasticsearch bash

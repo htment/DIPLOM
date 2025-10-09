@@ -182,9 +182,12 @@ find diploma -type f -name "*.tf" -o -name "*.yml" -o -name "*.j2" -o -name "*.h
 ```
 mkdir -p diploma/terraform diploma/ansible/roles/{nginx,zabbix-agent,filebeat,zabbix-server,elasticsearch,kibana}/{tasks,templates,files,handlers,vars,defaults} diploma/scripts diploma/docs && touch diploma/terraform/{main.tf,variables.tf,outputs.tf,terraform.tfvars.example,secret.auto.tfvars} diploma/ansible/{inventory.yml,bastion.yml,webservers.yml,zabbix.yml,elk.yml} diploma/ansible/roles/{nginx,zabbix-agent,filebeat,zabbix-server,elasticsearch,kibana}/tasks/main.yml diploma/ansible/roles/zabbix-agent/templates/zabbix_agentd.conf.j2 diploma/ansible/roles/filebeat/templates/filebeat.yml.j2 diploma/ansible/roles/zabbix-server/templates/zabbix_server.conf.j2 diploma/ansible/roles/nginx/files/index.html diploma/README.md
 ```
-
+# 3.  Установка ansible
+```
+apt get install ansible
+```
 ---------------------------------------------------------------
-# 3. Установка terraform
+# 4. Установка terraform
 скачаем архив
 ```
 wget https://releases.hashicorp.com/terraform/1.2.1/terraform_1.2.1_linux_amd64.zip
@@ -223,7 +226,7 @@ provider_installation {
 
 
 
-скачаем .authorized_key.json
+# 5. Создадим скачаем .authorized_key.json из YAndexCloud
 ![alt text](image-14.png)
 
 
@@ -234,11 +237,26 @@ provider_installation {
 ```
 yandex_cloud_id  = "your_cloud_id"
 yandex_folder_id = "your_folder_id"
-yandex_token     = "your_oauth_token"
+# yandex_token     = "your_oauth_token"   # - сюда не добавляем прописан в  cloud-init.yml
+```
+
+
+
+# 6. Создадим providers.tf
 
 ```
-создадим файл cloud-init.yml
-создалим пользователя user и админ 
+
+provider "yandex" {
+  cloud_id                 = var.yandex_cloud_id
+  folder_id                = var.yandex_folder_id  
+  service_account_key_file = file("~/.authorized_key.json")
+  zone      = "ru-central1-a"
+}
+```
+
+# 7. Cоздадим файл cloud-init.yml
+
+## создалим пользователя user и админ 
 ```
 #cloud-config
 users:
@@ -268,96 +286,10 @@ chpasswd:
 ![alt text](image-1.png)
 
 # 4. Развертывание инфраструктуры:
-
+запускаем 
+``START.sh``
 ```
-cd terraform
-terraform init
-terraform plan
-terraform apply -auto-approve
-
-```
-![alt text](image-2.png)
-
-![alt text](image-3.png)
-
-![alt text](image-4.png)
-
-Проверим
-```
-ssh -J user@89.169.147.251 user@192.168.10.24
-```
-```
-
-export BASTION_EXT_IP=$(terraform output -raw bastion_external_ip)
-export ZABBIX_EXT_IP=$(terraform output -raw zabbix_external_ip)
-export KIBANA_EXT_IP=$(terraform output -raw kibana_external_ip)
-export ZABBIX_INT_IP=$(terraform output -raw zabbix_internal_ip)
-
-```
-
-## Настройка ПО через Ansible:
-
-Установим ansible
-
-
-```
-sudo apt install ansible
-```
-
-
-```
-cd ../ansible
-```
-
-запустим 
-
-``external.sh``
-
-
-создадим файлы vars.yml inventory.yml
-
-```
-bash external.sh
-
-```
-## Проверим все хосты
-```
-ansible all -m ping
-2 раза
-ansible all -m ping
-
-```
-![alt text](image-5.png)
-
-```
-ansible-playbook -i inventory.yml bastion.yml  
-```
-```
-ansible-playbook -i inventory.yml zabbix.yml 
-```
-![alt text](image-6.png)
-![alt text](image-7.png)
-![alt text](image-9.png)
-![alt text](image-11.png)
-![alt text](image-12.png)
-
-
-
-```
-ansible-playbook -i inventory.yml elk.yml --extra-vars "kibana_ip=$KIBANA_IP bastion_ip=$BASTION_IP"
-ansible-playbook -i inventory.yml webservers.yml --extra-vars "bastion_ip=$BASTION_IP"
-
-```
-Тестирование:
-
-```
-curl -v $(terraform output -raw alb_external_ip)
-
-
-# Проверьте доступность:
-# - Zabbix: http://<zabbix_ip>
-# - Kibana: http://<kibana_ip>:5601
-
+./START.sh/
 ```
 
 
@@ -369,8 +301,9 @@ curl -v $(terraform output -raw alb_external_ip)
 
 # Уничтожение инфраструктуры:
 ```
-terraform destroy
+./STOP.sh/
 ```
-Эта конфигурация создает полную отказоустойчивую инфраструктуру с мониторингом, сбором логов и резервным копированием в соответствии с требованиями задания.
+![alt text](image-15.png)
+## Эта конфигурация создает полную отказоустойчивую инфраструктуру с мониторингом, сбором логов и резервным копированием в соответствии с требованиями задания.
 
 
