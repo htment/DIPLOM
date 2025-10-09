@@ -3,8 +3,8 @@
   hosts: elastic
   become: yes
   vars:
-    elastic_int_ip: 192.168.20.12
-    kibana_ext_ip: 84.252.128.116
+    elastic_int_ip: 192.168.20.7
+    kibana_ext_ip: 89.169.153.237
     elastic_username: elastic
     elastic_password: SuperSecret123!
     kibana_username: kibana_system
@@ -20,7 +20,7 @@
   become: yes
   vars:
     #ansible_user: user
-    elastic_int_ip: 192.168.20.12
+    elastic_int_ip: 192.168.20.7
     elastic_password: SuperSecret123!
     kibana_username: kibana_system
     kibana_password: KibanaPass123!
