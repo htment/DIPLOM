@@ -5,7 +5,7 @@
 Эта схема показывает основные компоненты системы и их взаимодействие.
 https://github.com/htment/DIPLOM/tree/main/_OPISANIE/2_Razvorot_infra
 ![alt text](image.png)
-# 2. Развррачиваем инфраструктуру
+# 2. Разворачиваем инфраструктуру
 Описание настройки 
 https://github.com/htment/DIPLOM/blob/main/_OPISANIE/2_Razvorot_infra/README.md
 
@@ -17,6 +17,10 @@ https://github.com/htment/DIPLOM/blob/main/_OPISANIE/2_Razvorot_infra/README.md
 
 
 # 3.  Тестирование сервисов
+
+
+
+
 
 # 5.  Уничтожение инфраструктуры:
 ```

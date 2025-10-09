@@ -1,5 +1,5 @@
 
-# 1. Получим структуру проекта
+# 2.1. Получим структуру проекта
 
 
 ```
@@ -65,7 +65,7 @@
 +-------------------+   +-------------------+
 
 ```
-# 2.Получим структуру папок 
+# 2.2. Получим структуру папок 
 ```
 diploma/
 ├── terraform/
@@ -131,7 +131,7 @@ diploma/
 └── README.md
 ```
 
-### 2.1 Cоздадим структуру 
+### 2.2.1 Cоздадим структуру 
 
 
 ```
@@ -182,12 +182,12 @@ find diploma -type f -name "*.tf" -o -name "*.yml" -o -name "*.j2" -o -name "*.h
 ```
 mkdir -p diploma/terraform diploma/ansible/roles/{nginx,zabbix-agent,filebeat,zabbix-server,elasticsearch,kibana}/{tasks,templates,files,handlers,vars,defaults} diploma/scripts diploma/docs && touch diploma/terraform/{main.tf,variables.tf,outputs.tf,terraform.tfvars.example,secret.auto.tfvars} diploma/ansible/{inventory.yml,bastion.yml,webservers.yml,zabbix.yml,elk.yml} diploma/ansible/roles/{nginx,zabbix-agent,filebeat,zabbix-server,elasticsearch,kibana}/tasks/main.yml diploma/ansible/roles/zabbix-agent/templates/zabbix_agentd.conf.j2 diploma/ansible/roles/filebeat/templates/filebeat.yml.j2 diploma/ansible/roles/zabbix-server/templates/zabbix_server.conf.j2 diploma/ansible/roles/nginx/files/index.html diploma/README.md
 ```
-# 3.  Установка ansible
+# 2.3.  Установка ansible
 ```
 apt get install ansible
 ```
 ---------------------------------------------------------------
-# 4. Установка terraform
+# 2.4. Установка terraform
 скачаем архив
 ```
 wget https://releases.hashicorp.com/terraform/1.2.1/terraform_1.2.1_linux_amd64.zip
@@ -226,7 +226,7 @@ provider_installation {
 
 
 
-# 5. Создадим скачаем .authorized_key.json из YAndexCloud
+# 2.5. Создадим скачаем .authorized_key.json из YAndexCloud
 ![alt text](image-14.png)
 
 
@@ -242,7 +242,7 @@ yandex_folder_id = "your_folder_id"
 
 
 
-# 6. Создадим providers.tf
+# 2.6. Создадим providers.tf
 
 ```
 
@@ -254,7 +254,7 @@ provider "yandex" {
 }
 ```
 
-# 7. Cоздадим файл cloud-init.yml
+# 2.7. Cоздадим файл cloud-init.yml
 
 ## создалим пользователя user и админ 
 ```
@@ -285,7 +285,7 @@ chpasswd:
 
 ![alt text](image-1.png)
 
-# 4. Развертывание инфраструктуры:
+# 2.8. Развертывание инфраструктуры:
 запускаем 
 ``START.sh``
 ```
@@ -328,7 +328,7 @@ echo "=========================================="
 
 Выполните ``terraform apply`` для применения изменений
 
-# 5.  Уничтожение инфраструктуры:
+# 2.9. ДЛЯ  Уничтожения инфраструктуры:
 ```
 ./STOP.sh/
 ```
