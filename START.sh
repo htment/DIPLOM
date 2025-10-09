@@ -46,7 +46,7 @@ ansible-playbook -i inventory.yml bastion.yml
             exit 1
         fi
 echo "==============================================================================="
-echo "Запуск Ansible playbook ZABBIX-server"
+echo "Установим ZABBIX-server: ansible-playbook -i inventory.yml zabbix-server.yml "
 ansible-playbook -i inventory.yml zabbix-server.yml 
         # Проверка успешности выполнения Ansible playbook
         if [ $? -ne 0 ]; then
@@ -55,7 +55,7 @@ ansible-playbook -i inventory.yml zabbix-server.yml
         fi
 
 echo "==============================================================================="
-echo "Запуск Ansible playbook ZABBIX-agent"
+echo "Установим ZABBIX-agent: ansible-playbook -i inventory.yml zabbix-agent.yml"
 ansible-playbook -i inventory.yml zabbix-agent.yml
 
         # Проверка успешности выполнения Ansible playbook
@@ -64,7 +64,7 @@ ansible-playbook -i inventory.yml zabbix-agent.yml
             exit 1
         fi
 echo "==============================================================================="
-echo "Запуск Ansible playbook WEB-1,2"
+echo "Настроим web-сервера:  ansible-playbook -i inventory.yml webservers.yml"
 echo "ansible-playbook -i inventory.yml webservers.yml"
 ansible-playbook -i inventory.yml webservers.yml 
 
@@ -74,6 +74,7 @@ ansible-playbook -i inventory.yml webservers.yml
             exit 1
         fi
 echo "==============================================================================="
+echo "Установим ELK: ansible-playbook -i inventory.yml elk.yml "
 ansible-playbook -i inventory.yml elk.yml 
         # Проверка успешности выполнения Ansible playbook
         if [ $? -ne 0 ]; then
@@ -81,7 +82,21 @@ ansible-playbook -i inventory.yml elk.yml
             exit 1
         fi
 
-echo "=========================================="
+
+echo "==============================================================================="
+echo "Поставим хосты на мониторинг: ansible-playbook -i inventory.yml zabbix-autodescovery2.yml"
+ansible-playbook -i inventory.yml zabbix-autodescovery2.yml
+        # Проверка успешности выполнения Ansible playbook
+        if [ $? -ne 0 ]; then
+            echo "Ошибка при выполнении Ansible playbook."
+            exit 1
+        fi
+
+
+echo "==============================================================================="
+
+
+
 
 cd "$START_DIR"
 pwd

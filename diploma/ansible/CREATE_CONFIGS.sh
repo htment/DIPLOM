@@ -48,7 +48,17 @@ all:
       -o UserKnownHostsFile=/dev/null
       -o ProxyCommand="ssh -W %h:%p -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null user@$BASTION_EXT_IP"
     
-    zabbix_server_ip: $ZABBIX_INT_IP 
+    zabbix_server_ip: $ZABBIX_INT_IP
+        # Добавляем хосты для мониторинга
+    zabbix_hosts: 
+      - name: web-1.ru-central1.internal
+        ip: $WEB_1_INT_IP
+      - name: web-2.ru-central1.internal
+        ip: $WEB_2_INT_IP
+      - name: elastic.ru-central1.internal
+        ip: $ELASTIC_INT_IP
+      - name: kibana.ru-central1.internal
+        ip: $KIBANA_INT_IP 
     elastic_server_ip: $ELASTIC_INT_IP
 
   children:
@@ -85,7 +95,12 @@ all:
         zabbix.ru-central1.internal:
           ansible_host: "$ZABBIX_INT_IP"
           ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-          
+          zabbix_admin_user: "Admin"
+          zabbix_admin_password: "zabbix"
+          zabbix_discovery_name: "Network Discovery"
+          zabbix_discovery_iprange: "192.168.0.0/16,192.168.10.0/24,192.168.20.0/24,192.168.30.0/24"
+          zabbix_discovery_delay: "10m"
+          zabbix_action_name: "Auto Register Linux Hosts"
 
     kibana:
       hosts:

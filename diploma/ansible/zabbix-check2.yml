@@ -1,0 +1,83 @@
+---
+- name: Debug Zabbix host addition
+  hosts: zabbix
+  tasks:
+    - name: Get Zabbix API authentication token
+      uri:
+        url: "http://{{ zabbix_server_ip }}/api_jsonrpc.php"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body:
+          jsonrpc: "2.0"
+          method: "user.login"
+          params:
+            user: "{{ zabbix_admin_user }}"
+            password: "{{ zabbix_admin_password }}"
+          id: 1
+        body_format: json
+        status_code: 200
+      register: zabbix_auth
+      changed_when: false
+
+    - name: Debug - Show groups from inventory
+      debug:
+        msg: "Groups: webservers={{ groups['webservers'] }}, elastic={{ groups['elastic'] }}"
+
+    - name: Debug - Show hostvars for each host
+      debug:
+        msg: "Host {{ item }} has IP: {{ hostvars[item].ansible_host }}"
+      with_items: "{{ groups['webservers'] + groups['elastic'] }}"
+
+    - name: Try to add single host (web-2)
+      uri:
+        url: "http://{{ zabbix_server_ip }}/api_jsonrpc.php"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body:
+          jsonrpc: "2.0"
+          method: "host.create"
+          params:
+            host: "web-2.ru-central1.internal"
+            interfaces:
+              - type: 1
+                main: 1
+                useip: 1
+                ip: "192.168.30.8"
+                port: "10050"
+            groups:
+              - groupid: 2
+            templates:
+              - templateid: 10001
+          auth: "{{ zabbix_auth.json.result }}"
+          id: 10
+        body_format: json
+        status_code: 200
+      register: add_web2_result
+
+    - name: Show web-2 addition result
+      debug:
+        var: add_web2_result
+
+    - name: Check if web-2 now exists
+      uri:
+        url: "http://{{ zabbix_server_ip }}/api_jsonrpc.php"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body:
+          jsonrpc: "2.0"
+          method: "host.get"
+          params:
+            filter:
+              host: "web-2.ru-central1.internal"
+          auth: "{{ zabbix_auth.json.result }}"
+          id: 11
+        body_format: json
+        status_code: 200
+      register: check_web2
+
+    - name: Show web-2 check result
+      debug:
+        var: check_web2.json

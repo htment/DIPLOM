@@ -1,0 +1,101 @@
+---
+- name: Configure Zabbix autodiscovery and add hosts
+  hosts: zabbix
+  tasks:
+    - name: Get Zabbix API authentication token
+      uri:
+        url: "http://{{ zabbix_server_ip }}/api_jsonrpc.php"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body:
+          jsonrpc: "2.0"
+          method: "user.login"
+          params:
+            user: "{{ zabbix_admin_user }}"
+            password: "{{ zabbix_admin_password }}"
+          id: 1
+        body_format: json
+        status_code: 200
+      register: zabbix_auth
+      changed_when: false
+
+    - name: Create network discovery rule
+      uri:
+        url: "http://{{ zabbix_server_ip }}/api_jsonrpc.php"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body:
+          jsonrpc: "2.0"
+          method: "drule.create"
+          params:
+            name: "{{ zabbix_discovery_name }}"
+            iprange: "{{ zabbix_discovery_iprange }}"
+            delay: "{{ zabbix_discovery_delay }}"
+            dchecks:
+              - type: 9
+                key_: "system.uname"
+                ports: "10050"
+          auth: "{{ zabbix_auth.json.result }}"
+          id: 2
+        body_format: json
+        status_code: 200
+      register: discovery_result
+      failed_when: false
+
+    - name: Create auto registration action
+      uri:
+        url: "http://{{ zabbix_server_ip }}/api_jsonrpc.php"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body:
+          jsonrpc: "2.0"
+          method: "action.create"
+          params:
+            name: "{{ zabbix_action_name }}"
+            eventsource: 1
+            operations:
+              - operationtype: 2
+          auth: "{{ zabbix_auth.json.result }}"
+          id: 3
+        body_format: json
+        status_code: 200
+      register: action_result
+      failed_when: false
+
+    - name: Add hosts to Zabbix
+      uri:
+        url: "http://{{ zabbix_server_ip }}/api_jsonrpc.php" # Исправлено: используем zabbix_server_ip
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body:
+          jsonrpc: "2.0"
+          method: "host.create"
+          params:
+            host: "{{ item.name }}"
+            name: "{{ item.name.split('.')[0] }}"
+            interfaces:
+              - type: 1
+                main: 1
+                useip: 1
+                ip: "{{ item.ip }}"
+                dns: ""
+                port: "10050"
+            groups:
+              - groupid: "2"
+            templates:
+              - templateid: "10001"
+          auth: "{{ zabbix_auth.json.result }}" # Исправлено: zabbix_auth вместо auth_result
+          id: 1
+        body_format: json
+      loop: "{{ zabbix_hosts }}" # Должна быть определена
+      register: host_result
+
+    - name: Show results
+      debug:
+        msg: "Host {{ item.item.name }} added with ID {{ item.json.result.hostids[0] }}"
+      loop: "{{ host_result.results }}"
+      when: item.changed
