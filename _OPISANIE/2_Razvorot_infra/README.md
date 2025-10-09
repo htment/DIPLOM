@@ -292,18 +292,49 @@ chpasswd:
 ./START.sh/
 ```
 
+## Эта конфигурация создает полную отказоустойчивую инфраструктуру с мониторингом, сбором логов и резервным копированием в соответствии с требованиями задания.
+ - Запуск Terraform apply -auto-approve
+ - Сбор адресов ВМ-ок (создание external.sh)
+ - Запуск diploma/ansible/CREATE_CONFIGS.sh
+ - - Создание vars.yml
+ - - Создание inventory.yml
+ - - Создание filebeat.yml
+ - - Создание elk.yml
+ - - Создание zabbix-agent.yml
 
 
-## Измените в main.tf для всех ВМ preemptible = true на preemptible = false
+
+![alt text](image-17.png)
+ - Запуск ролей ANSIBLE 
+  -- Запуск Ansible playbook BASTION
+  -- Установим ZABBIX-server
+  -- Установим ZABBIX-agent
+  -- Настроим web-сервера
+  -- Установим ELK
+  -- Поставим хосты на мониторинг
+![alt text](image-18.png)
+ -  Получаем итоговый результат:
+
+```
+echo "Адреса ВМ-ок"
+bash ECHO_VARS.sh
+echo "Все скрипты и playbook выполнены успешно."
+echo "=========================================="
+
+```
+![alt text](image-20.png)
+### Измените в main.tf для всех ВМ preemptible = true на preemptible = false
 
 
 Выполните ``terraform apply`` для применения изменений
 
-# Уничтожение инфраструктуры:
+# 5.  Уничтожение инфраструктуры:
 ```
 ./STOP.sh/
 ```
 ![alt text](image-15.png)
-## Эта конфигурация создает полную отказоустойчивую инфраструктуру с мониторингом, сбором логов и резервным копированием в соответствии с требованиями задания.
+![alt text](image-16.png)
+
+
 
 

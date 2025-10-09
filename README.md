@@ -3,13 +3,25 @@
 1. Блок-схема проекта (Высокоуровневая архитектура)
 
 Эта схема показывает основные компоненты системы и их взаимодействие.
-https://github.com/htment/DIPLOM/tree/main/diploma
+https://github.com/htment/DIPLOM/tree/main/_OPISANIE/2_Razvorot_infra
 ![alt text](image.png)
 # 2. Развррачиваем инфраструктуру
 Описание настройки 
-https://github.com/htment/DIPLOM/blob/main/diploma/README.md
+https://github.com/htment/DIPLOM/blob/main/_OPISANIE/2_Razvorot_infra/README.md
+
+## Запускаем скрипт ``START.sh``
+
+ Эта конфигурация создает полную отказоустойчивую инфраструктуру с мониторингом, сбором логов и резервным копированием в соответствии с требованиями задания.
+
+ 
+
 
 # 3.  Тестирование сервисов
+
+# 5.  Уничтожение инфраструктуры:
+```
+./STOP.sh/
+```
 
 
 
