@@ -4,8 +4,8 @@
   hosts: all
   become: yes
   vars:
-    Server: 192.168.10.33
-    ServerActive: 192.168.10.33
+    Server: 192.168.10.29
+    ServerActive: 192.168.10.29
   
 
 
