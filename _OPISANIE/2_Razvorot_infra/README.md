@@ -306,12 +306,19 @@ chpasswd:
 
 ![alt text](image-17.png)
  - Запуск ролей ANSIBLE 
-  -- Запуск Ansible playbook BASTION
-  -- Установим ZABBIX-server
-  -- Установим ZABBIX-agent
-  -- Настроим web-сервера
-  -- Установим ELK
-  -- Поставим хосты на мониторинг
+
+   - Запуск Ansible playbook BASTION
+
+   - Установим ZABBIX-server
+
+   - Установим ZABBIX-agent
+
+   - Настроим web-сервера
+
+   - Установим ELK
+
+   - Поставим хосты на мониторинг
+
 ![alt text](image-18.png)
  -  Получаем итоговый результат:
 
